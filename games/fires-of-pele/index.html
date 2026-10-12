@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fires of Pele — Free 3D Island Survival Game in Your Browser</title>
+<meta name="description" content="Shipwrecked with two dogs on a cursed volcanic island. Gather, build and upgrade your base, tame animals, invent tools and survive smarter raids each night. Free, plays in your browser.">
+<link rel="canonical" href="https://longroadsoftware.com/games/fires-of-pele/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Long Road Software">
+<meta property="og:title" content="Fires of Pele — an On Island Time adventure">
+<meta property="og:description" content="A free 3D island survival game that plays in your browser. Build, tame, invent, and survive the night raids.">
+<meta property="og:url" content="https://longroadsoftware.com/games/fires-of-pele/">
+<meta property="og:image" content="https://longroadsoftware.com/games/fires-of-pele/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --sand:#f4e3b5; --lava:#ff6a1a; --deep:#0d2a3a; --panel:rgba(10,20,28,0.62); --good:#7dde7d; --bad:#ff6a5a; --warn:#ffd25a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif; color: #fff; user-select: none; }
+  canvas#game { display: block; width: 100vw; height: 100vh; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  body[data-mode="title"] #hud { display: none; }
+  .panel { background: var(--panel); border-radius: 12px; backdrop-filter: blur(4px); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+
+  #stats { position: absolute; left: 16px; bottom: 16px; width: 250px; padding: 10px 12px; }
+  .stat { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; }
+  .stat .ic { width: 18px; text-align: center; }
+  .track { flex: 1; height: 10px; background: rgba(255,255,255,0.12); border-radius: 6px; overflow: hidden; position: relative; }
+  .fill { height: 100%; border-radius: 6px; transition: width .15s; }
+  #hpfill { background: linear-gradient(90deg,#d8332a,#ff6a5a); } #stfill { background: linear-gradient(90deg,#d8b02a,#ffe25a); }
+  #hufill { background: linear-gradient(90deg,#b8742a,#ffaa5a); } #thfill { background: linear-gradient(90deg,#2a8ad8,#5ac8ff); }
+  #hptext { width: 28px; text-align: right; font-weight: 700; }
+  #weapon { margin-top: 6px; font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px; }
+  #weapon span { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 6px; }
+  #weapon span.sel { background: rgba(255,200,80,0.45); }
+
+  #inv { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; }
+  body[data-mode="build"] #inv { bottom: 128px; }
+  .slot { width: 54px; height: 50px; background: rgba(255,255,255,0.08); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .slot span { font-size: 20px; line-height: 1; } .slot b { font-size: 13px; margin-top: 2px; }
+
+  #clock { position: absolute; right: 16px; top: 228px; padding: 8px 12px; font-size: 13px; text-align: right; min-width: 200px; line-height: 1.45; }
+  #minimap { position: absolute; right: 16px; top: 16px; width: 200px; height: 200px; border-radius: 50%; transition: all .2s; }
+  #minimap.big { width: 520px; height: 520px; right: 50%; top: 50%; transform: translate(50%,-50%); }
+  .warn { color: var(--warn); } .bad { color: var(--bad); font-weight: 700; }
+
+  #objective { position: absolute; left: 16px; top: 16px; max-width: 380px; padding: 10px 14px; font-size: 13px; line-height: 1.5; }
+  #objective .chap { font-weight: 800; color: var(--sand); margin-bottom: 4px; font-size: 14px; letter-spacing: .02em; }
+  #objective .obj.done { color: #9fd89f; opacity: .7; text-decoration: line-through; }
+  #objective .obj.todo { opacity: .45; }
+  #objective .obj.active { color: #fff; font-weight: 600; }
+  #objective .prog { color: var(--warn); margin-left: 4px; } #objective .dist { color: #9cf; font-size: 11px; margin-left: 4px; }
+
+  #pets { position: absolute; left: 16px; bottom: 150px; width: 250px; font-size: 12px; }
+  #pets:empty { display: none; }
+  #pets { background: var(--panel); border-radius: 12px; padding: 8px 10px; }
+  .pethead { opacity: .8; margin-bottom: 4px; } .pet { position: relative; padding: 2px 4px; margin: 2px 0; border-radius: 6px; overflow: hidden; }
+  .pet i { position: absolute; left: 0; bottom: 0; height: 2px; background: #5cf; } .pet.ko { opacity: .4; text-decoration: line-through; }
+
+  #toasts { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; width: 640px; }
+  .toast { background: var(--panel); padding: 8px 16px; border-radius: 10px; font-size: 14px; text-align: center; transition: opacity .5s, transform .5s; animation: pop .25s ease-out; }
+  .toast.good { border-left: 4px solid var(--good); } .toast.bad { border-left: 4px solid var(--bad); background: rgba(60,10,8,0.75); }
+  .toast.warn { border-left: 4px solid var(--warn); } .toast.chapter { font-size: 22px; font-weight: 800; color: var(--sand); padding: 12px 26px; background: rgba(40,20,10,0.75); }
+  .toast.out { opacity: 0; transform: translateY(-8px); }
+  @keyframes pop { from { transform: scale(.9); opacity: 0; } }
+  #feed { position: absolute; right: 16px; top: 340px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .feed-item { background: rgba(0,0,0,0.45); padding: 3px 10px; border-radius: 8px; font-size: 13px; transition: opacity .6s; animation: pop .2s; }
+  .feed-item.out { opacity: 0; }
+
+  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 8px; font-size: 14px; display: none; border: 1px solid rgba(255,255,255,0.2); }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,0.85); box-shadow: 0 0 0 2px rgba(0,0,0,0.35); }
+  #vignette { position: absolute; inset: 0; box-shadow: inset 0 0 160px 40px rgba(200,0,0,0.85); opacity: 0; transition: opacity .25s; }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; }
+  #fade.on { opacity: 1; }
+
+  #buildbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 6px; }
+  .bslot { width: 92px; background: var(--panel); border-radius: 10px; padding: 6px; text-align: center; font-size: 11px; border: 2px solid transparent; position: relative; }
+  .bslot.sel { border-color: var(--warn); background: rgba(60,45,10,0.75); } .bslot.poor { opacity: .55; }
+  .bslot .bi { font-size: 22px; } .bslot .bn { font-weight: 700; margin: 2px 0; } .bslot .bc { opacity: .8; font-size: 10px; }
+  .bslot .bk { position: absolute; left: 5px; top: 3px; opacity: .6; }
+  #buildinfo { position: absolute; left: 50%; bottom: 196px; transform: translateX(-50%); padding: 8px 14px; font-size: 13px; text-align: center; display: none; max-width: 640px; }
+  #buildinfo .tgt { color: #9cf; } #buildinfo small { opacity: .7; }
+
+  #bossbar { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 520px; display: none; text-align: center; }
+  #bossname { font-weight: 800; color: #ffb070; text-shadow: 0 2px 4px #000; margin-bottom: 4px; font-size: 16px; }
+  #bosstrack { height: 14px; background: rgba(0,0,0,0.6); border-radius: 8px; overflow: hidden; border: 1px solid #a33; }
+  #bossfill { height: 100%; background: linear-gradient(90deg,#ff3a10,#ffaa30); width: 100%; transition: width .2s; }
+
+  /* screens */
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(5,12,18,0.55); }
+  #title { background: radial-gradient(ellipse at 50% 120%, rgba(255,90,20,0.45), rgba(5,12,18,0.35) 60%); }
+  #title h1 { font-size: 84px; margin: 0; letter-spacing: .04em; color: var(--sand); text-shadow: 0 4px 0 #a2401a, 0 10px 30px rgba(0,0,0,0.6); }
+  #title h3 { margin: 6px 0 34px; font-weight: 500; opacity: .9; letter-spacing: .2em; text-transform: uppercase; font-size: 14px; }
+  .btn, .screen button { pointer-events: auto; background: linear-gradient(#ffb04a,#e0701a); border: none; color: #2a1206; font-weight: 800; font-size: 17px; padding: 12px 30px; border-radius: 30px; margin: 6px; cursor: pointer; box-shadow: 0 4px 0 #8a3a0a; font-family: inherit; }
+  .screen button:hover { filter: brightness(1.1); } .screen button:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a3a0a; }
+  .screen button.secondary { background: linear-gradient(#e8f0f4,#b8c8d0); box-shadow: 0 4px 0 #5a6a72; }
+  #btnContinue { display: none; }
+  #touchNote { display: none; margin-top: 18px; background: rgba(0,0,0,0.55); padding: 8px 14px; border-radius: 10px; font-size: 14px; }
+  @media (pointer: coarse) and (hover: none) { #touchNote { display: block; } }
+  #homeLink { position: absolute; left: 20px; bottom: 16px; color: #f4e3b5; font-size: 13px; opacity: .8; text-decoration: none; pointer-events: auto; }
+  #homeLink:hover { opacity: 1; text-decoration: underline; }
+  .box { background: rgba(12,22,30,0.9); border-radius: 16px; padding: 26px 34px; max-width: 760px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .box h2 { margin-top: 0; color: var(--sand); }
+  #help table { text-align: left; border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; }
+  #help td { padding: 3px 12px; } #help td:first-child { color: var(--warn); font-weight: 700; white-space: nowrap; }
+  #craft .box { max-width: 900px; max-height: 88vh; overflow: auto; text-align: left; }
+  #craft h2 small { font-size: 12px; color: var(--warn); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .card { display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; }
+  .card .ci { font-size: 30px; width: 40px; text-align: center; } .card > div:nth-child(2) { flex: 1; }
+  .card p { margin: 2px 0; font-size: 12px; opacity: .8; } .card small { font-size: 11px; color: #ffd890; }
+  .card button { font-size: 13px; padding: 7px 14px; margin: 0; }
+  .card button:disabled { filter: grayscale(1); opacity: .5; cursor: default; }
+  .card.owned { opacity: .6; } .card.locked { opacity: .45; }
+  .hint { opacity: .7; font-size: 12px; text-align: center; }
+
+  #dialogue { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(760px, 92vw); background: rgba(14,10,6,0.88); border: 2px solid rgba(244,227,181,0.5); border-radius: 14px; padding: 18px 24px 14px; display: none; pointer-events: auto; cursor: pointer; animation: pop .25s; }
+  #dlgwho { color: #8fe0b0; font-weight: 800; margin-bottom: 6px; }
+  #dlgtext { font-size: 17px; line-height: 1.55; } #dlgtext i { color: var(--sand); }
+  #dlgnext { text-align: right; font-size: 12px; opacity: .7; margin-top: 8px; }
+  #victory h1 { color: var(--sand); font-size: 56px; margin: 0 0 10px; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="objective" class="panel"></div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="clock" class="panel"></div>
+  <div id="feed"></div>
+  <div id="toasts"></div>
+  <div id="bossbar"><div id="bossname"></div><div id="bosstrack"><div id="bossfill"></div></div></div>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="pets"></div>
+  <div id="stats" class="panel">
+    <div class="stat"><span class="ic">❤️</span><div class="track"><div id="hpfill" class="fill"></div></div><span id="hptext"></span></div>
+    <div class="stat"><span class="ic">⚡</span><div class="track"><div id="stfill" class="fill"></div></div></div>
+    <div class="stat"><span class="ic">🍖</span><div class="track"><div id="hufill" class="fill"></div></div></div>
+    <div class="stat"><span class="ic">💧</span><div class="track"><div id="thfill" class="fill"></div></div></div>
+    <div id="weapon"></div>
+  </div>
+  <div id="inv" class="panel"></div>
+  <div id="buildinfo" class="panel"></div>
+  <div id="buildbar"></div>
+  <div id="vignette"></div>
+</div>
+<div id="dialogue"><div id="dlgwho"></div><div id="dlgtext"></div><div id="dlgnext"></div></div>
+
+<div id="title" class="screen">
+  <h1>FIRES OF PELE</h1>
+  <h3>An On Island Time Adventure</h3>
+  <div>
+    <button id="btnNew">New Game</button>
+    <button id="btnContinue">Continue</button>
+    <button id="btnHelp" class="secondary">How to Play</button>
+  </div>
+  <p id="touchNote">This game needs a keyboard and mouse. Please open it on a Mac or PC.</p>
+  <a id="homeLink" href="https://longroadsoftware.com/">Long Road Software</a>
+</div>
+<div id="pause" class="screen"><div class="box"><h2>Paused</h2>
+  <button id="btnResume">Resume</button><button id="btnSave" class="secondary">Save Game</button><button id="btnPauseHelp" class="secondary">Controls</button>
+  <p class="hint">Progress also autosaves every dawn and at the end of each chapter.</p></div></div>
+<div id="help" class="screen"><div class="box"><h2>How to Play</h2>
+  <table>
+    <tr><td>W A S D</td><td>Move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr>
+    <tr><td>Mouse</td><td>Look around · wheel zooms (arrow keys also turn the camera)</td></tr>
+    <tr><td>Left click</td><td>Attack / harvest trees, rocks, flax, berries, obsidian</td></tr>
+    <tr><td>Right click</td><td>Sling a stone (once crafted)</td></tr>
+    <tr><td>1 2 3</td><td>Club / Stone Spear / Obsidian Blade</td></tr>
+    <tr><td>E</td><td>Interact: feed &amp; tame animals, talk, collect, salvage</td></tr>
+    <tr><td>B</td><td>Build mode: LMB place · R rotate · U upgrade/repair · V demolish</td></tr>
+    <tr><td>C</td><td>Crafting &amp; inventions</td></tr>
+    <tr><td>F / G / H</td><td>Eat food / drink water / use bandage</td></tr>
+    <tr><td>P</td><td>Companions: follow you ⇄ guard the base</td></tr>
+    <tr><td>T</td><td>Rest at your Hearth until dusk</td></tr>
+    <tr><td>M</td><td>Toggle large map · <b>Esc</b> pause</td></tr>
+  </table>
+  <p style="font-size:13px;opacity:.85;max-width:620px;margin:0 auto 14px">Raiders come every night once your Hearth is lit, and each night is harder. Wood walls → stone → obsidian. Weaken ghost wolves to tame them; feed dogs and boars. Invent rain catchers, gardens and fish traps to stay fed.</p>
+  <button id="btnHelpBack">Back</button></div></div>
+<div id="craft" class="screen"><div class="box"><div id="craftbody"></div><div style="text-align:center"><button id="btnCloseCraft" class="secondary">Close</button></div></div></div>
+<div id="dead" class="screen"><div class="box"><h2>You have fallen</h2><p id="deadmsg"></p><button id="btnRespawn">Wake at the Hearth</button></div></div>
+<div id="victory" class="screen"><div class="box"><h1>🌋 The Curse is Lifted</h1><p id="vstats" style="line-height:1.8"></p>
+  <p class="hint">The raids continue for those who wish to stay on island time.</p><button id="btnKeepPlaying">Keep Playing</button></div></div>
+<div id="fade"></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

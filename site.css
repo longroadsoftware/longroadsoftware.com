@@ -165,3 +165,16 @@ footer a { color: var(--ink-2); }
 .consent-buttons button { font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; padding: 0.55rem 1.1rem; min-width: 11rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--sign); color: var(--sign-ink); }
 .consent-more { font-size: 0.95rem; margin-bottom: 0; }
 .consent-change { font: inherit; font-size: inherit; font-weight: 600; cursor: pointer; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 0.15em; }
+
+/* Email-me form (posts straight to Kit, no script) */
+.notify { margin-top: 1.25rem; max-width: var(--measure); }
+.notify label { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+.notify-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.notify input {
+  flex: 1 1 16rem; min-width: 0; padding: 0.65rem 0.8rem;
+  font: inherit; color: var(--ink); background: var(--paper-2);
+  border: 1px solid var(--line); border-radius: 0.5rem;
+}
+.notify input:focus-visible { outline: 3px solid var(--stripe); outline-offset: 2px; }
+.notify .button { border: 0; cursor: pointer; }
+.fine { color: var(--ink-2); font-size: 0.95rem; }

@@ -10,14 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@600;700;800&family=Overpass+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
 <link rel="stylesheet" href="/site.css">
-<!-- Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NT6Q01MZ23"></script>
-<script>
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-NT6Q01MZ23');
-</script>
+<!-- Analytics, off until the visitor says yes. See the privacy page. -->
+<script src="/analytics.js" data-ga="G-NT6Q01MZ23" data-privacy="https://mediaflowswift.com/privacy.html" defer></script>
 </head>
 <body>
 <header class="top wrap">
@@ -42,7 +36,8 @@ gtag('config', 'G-NT6Q01MZ23');
 <footer>
   <div class="wrap">
     <span>&copy; 2026 Long Road Software LLC &middot; Tennessee, USA</span>
-    <span><a href="https://mediaflowswift.com/">MediaFlowSwift</a></span>
+    <span><a href="https://mediaflowswift.com/">MediaFlowSwift</a> &middot; <a href="https://mediaflowswift.com/privacy.html">Privacy</a></span>
+    <span id="analytics-choice"></span>
   </div>
 </footer>
 </body>

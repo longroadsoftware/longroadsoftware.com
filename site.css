@@ -153,3 +153,15 @@ footer a { color: var(--ink-2); }
 @media (prefers-reduced-motion: no-preference) {
   .button, .top nav a { transition: color 0.15s, filter 0.15s; }
 }
+
+/* Analytics notice — asked once, before anything is loaded from Google.
+   Both buttons are the same size and the same colour: saying no is one
+   click, exactly like saying yes. */
+.consent { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--paper-2); border-top: 1px solid var(--line); box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.08); }
+.consent-inner { max-width: var(--max); margin: 0 auto; padding: 1rem 16px 1.25rem; }
+.consent h2 { font-size: 1.25rem; margin-bottom: 0.4rem; }
+.consent p { margin: 0 0 0.6rem; font-size: 1rem; color: var(--ink-2); max-width: 46rem; }
+.consent-buttons { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.consent-buttons button { font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; padding: 0.55rem 1.1rem; min-width: 11rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--sign); color: var(--sign-ink); }
+.consent-more { font-size: 0.95rem; margin-bottom: 0; }
+.consent-change { font: inherit; font-size: inherit; font-weight: 600; cursor: pointer; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 0.15em; }

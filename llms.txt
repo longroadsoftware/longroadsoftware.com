@@ -5,6 +5,7 @@
 ## Products
 - MediaFlowSwift: https://mediaflowswift.com/ — import from cards and phones, review and sort, organize into folders ready for editing, free up space only once each copy is proved, archive to numbered drives, and publish to YouTube. macOS 14 or later on Apple silicon. 14-day free trial, no card; Studio USD 4.99/month, Studio Pro USD 9.99/month. Product details for assistants: https://mediaflowswift.com/llms.txt
 - Proof Copy: https://longroadsoftware.com/proof-copy/ — coming soon, not on sale, no price published. Copies a camera card or folder on the Mac, reads the copy back, and leaves a receipt. One drive is enough. Nothing is deleted. Manual: https://longroadsoftware.com/proof-copy/proof-copy-manual.pdf
+- Check & Roll: https://longroadsoftware.com/check-and-roll/ — not on the App Store yet, no price published. An RV checklist app for iPhone and iPad: built-in lists for travel trailers, fifth wheels, motorhomes, toads and tow vehicles, steps presented in order with check-or-skip at each one, critical-step confirmation (e.g. the black tank valve), a hands-free walk-through, and Siri. No account, no Long Road Software server. Privacy: https://longroadsoftware.com/check-and-roll/privacy/ — Support: https://longroadsoftware.com/check-and-roll/support/
 
 ## Sales
 Purchases of MediaFlowSwift are handled by Paddle, the merchant of record.

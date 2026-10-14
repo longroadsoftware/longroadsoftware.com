@@ -33,7 +33,14 @@
 
   function load() {
     window["ga-disable-" + id] = false;
-    if (loaded) return;
+    if (loaded) {
+      /* Said yes, then no, then yes again without reloading. Google's script
+         is already here and the flag is clear, but nothing has been sent
+         since the no, so this visit would go uncounted while the line in the
+         footer says no reload is needed. Ask for it again. */
+      if (window.gtag) window.gtag("config", id);
+      return;
+    }
     loaded = true;
     window.dataLayer = window.dataLayer || [];
     window.gtag = function () { window.dataLayer.push(arguments); };
@@ -51,9 +58,16 @@
   function stop() {
     window["ga-disable-" + id] = true;
     var names = ["_ga", "_ga_" + id.replace(/^G-/, ""), "_gid"];
+    /* Google sets _ga on the registrable domain, not on the host, so clearing
+       location.hostname alone would miss it if this site were ever served from
+       www. The two-label guess is right for longroadsoftware.com; it would be
+       wrong for a suffix like co.uk. */
+    var labels = location.hostname.split(".");
+    var registrable = labels.length > 2 ? labels.slice(-2).join(".") : location.hostname;
     for (var i = 0; i < names.length; i++) {
       document.cookie = names[i] + "=; Max-Age=0; path=/";
       document.cookie = names[i] + "=; Max-Age=0; path=/; domain=" + location.hostname;
+      document.cookie = names[i] + "=; Max-Age=0; path=/; domain=." + registrable;
     }
   }
 

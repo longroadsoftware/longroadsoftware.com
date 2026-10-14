@@ -19,11 +19,15 @@
   var store = "analytics-consent";
   var loaded = false;
 
+  /* What the visitor said on this page, when the browser will not keep it. */
+  var saidHere = null;
+
   function answer() {
-    try { return window.localStorage.getItem(store); } catch (e) { return null; }
+    try { return window.localStorage.getItem(store) || saidHere; } catch (e) { return saidHere; }
   }
 
   function remember(said) {
+    saidHere = said;
     try { window.localStorage.setItem(store, said); } catch (e) { /* this page only */ }
   }
 
@@ -53,6 +57,22 @@
     }
   }
 
+  /* The notice is fixed to the bottom of the window, so without this it sits
+     over the footer links, including the privacy link and the line that says
+     what you chose, until the visitor answers. Hold the page open by the
+     notice's own height while it shows. */
+  var showing = null;
+
+  function holdPageOpen() {
+    if (showing) document.body.style.paddingBottom = showing.offsetHeight + "px";
+  }
+
+  function letPageClose() {
+    showing = null;
+    document.body.style.paddingBottom = "";
+    window.removeEventListener("resize", holdPageOpen);
+  }
+
   function ask() {
     var box = document.createElement("div");
     box.className = "consent";
@@ -78,9 +98,13 @@
       remember(said);
       if (said === "yes") load();
       if (box.parentNode) box.parentNode.removeChild(box);
+      letPageClose();
       showChoice();
     });
     document.body.appendChild(box);
+    showing = box;
+    holdPageOpen();
+    window.addEventListener("resize", holdPageOpen);
   }
 
   /* Any element with id="analytics-choice" (this site keeps one in its
@@ -92,7 +116,9 @@
     if (!slot) return;
     var said = answer();
     if (said !== "yes" && said !== "no") {
-      slot.textContent = "We have not asked you yet.";
+      slot.textContent = showing
+        ? "You have not answered yet. Analytics is off; the notice at the bottom of the page asks."
+        : "We have not asked you yet.";
       return;
     }
     slot.textContent = said === "yes"

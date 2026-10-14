@@ -83,9 +83,10 @@
     document.body.appendChild(box);
   }
 
-  /* The privacy page carries <p id="analytics-choice">, so a visitor can
-     see what they chose and change it. Other pages have no such element
-     and this does nothing. */
+  /* Any element with id="analytics-choice" (this site keeps one in its
+     footer on every page) shows what the visitor chose and lets them
+     change it, right there, with no reload. Pages without that element
+     just skip this. */
   function showChoice() {
     var slot = document.getElementById("analytics-choice");
     if (!slot) return;

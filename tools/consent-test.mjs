@@ -1,7 +1,7 @@
 /* Behaviour checks for analytics.js, with a small fake browser. No install:
      node tools/consent-test.mjs            (from the repo root)
      node tools/consent-test.mjs ../mediaflowswift.com/analytics.js
-   A copy of mwmike/mediaflowswift.com tools/consent-test.mjs. The same
+   A copy of longroadsoftware/mediaflowswift.com tools/consent-test.mjs. The same
    analytics.js is served by both sites; each repo checks the copy it ships. */
 import fs from "node:fs";
 const src = fs.readFileSync(process.argv[2] || "analytics.js", "utf8");

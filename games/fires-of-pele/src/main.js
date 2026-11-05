@@ -1,18 +1,22 @@
 // Fires of Pele — main bootstrap, game loop, interaction and mode handling.
 import * as THREE from 'three';
 import { G, CFG, count } from './state.js';
-import { buildTerrain, initSky, updateSky, heightAt, LOC } from './world.js';
+import { buildTerrain, initSky, updateSky, heightAt, LOC, updateWorld, refreshGrass } from './world.js';
 import { initFX, updateFX, initAudio, sfx, burst } from './fx.js';
-import { generateNodes, updateNodes } from './resources.js';
+import { generateNodes, updateNodes, streamNodes } from './resources.js';
 import { Player } from './player.js';
 import { initInput, input, pressed, endFrame, lockPointer, unlockPointer } from './input.js';
 import { initBuildingLights, updateBuildMode, updateStructures, hideGhost, collectFrom, relightHearth } from './building.js';
 import { updateProjectiles } from './projectiles.js';
 import { initTotems, updateEnemies, startNight, endNight } from './enemies.js';
 import { spawnStoryDogs, spawnWildlife, updateAnimals, togglePetMode } from './animals.js';
-import { initStory, updateStory, startChapter, talkToMalu } from './story.js';
-import { toast, updateHUD, setPrompt, drawMinimap, renderCraft, showScreen, advanceDialogue, dialogueOpen } from './ui.js';
-import { saveGame, loadGame, hasSave, clearSave } from './save.js';
+import { initStory, updateStory, startChapter, storyInteracts, resumeObj } from './story.js';
+import { buildCaves, updateCaves, caveInteracts, applyCaveFlags, cavesFound } from './caves.js';
+import { updateNPCs, npcInteracts, talkNPC, NPCS } from './npcs.js';
+import { initQuests, updateQuests, renderQuestLog } from './quests.js';
+import { toast, updateHUD, setPrompt, drawMinimap, renderCraft, showScreen, advanceDialogue, dialogueOpen, showDialogue as showDialogueLines } from './ui.js';
+import { saveGame, loadGame, hasSave, listSaves, deleteSave, slotExists, migrateOldSave } from './save.js';
+import { escHtml } from './state.js';
 import { makeLabel, part, merge, mesh } from './util.js';
 import * as THREE_NS from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -53,7 +57,9 @@ initFX(scene);
 generateNodes(scene);
 initBuildingLights(scene);
 initTotems();
+buildCaves(scene);
 initStory();
+initQuests();
 const player = new Player(scene);
 G.player = player;
 const startPos = () => ({ x: LOC.wreck.x - Math.cos(LOC.wreck.a) * 12, z: LOC.wreck.z - Math.sin(LOC.wreck.a) * 12 });
@@ -79,12 +85,44 @@ document.addEventListener('pointerlockchange', () => {
 });
 function openPause() { setMode('pause'); showScreen('pause'); }
 
-$('btnNew').onclick = () => { initAudio(); clearSave(); newGame(); };
-$('btnContinue').onclick = () => { initAudio(); continueGame(); };
+migrateOldSave();
+$('btnNew').onclick = () => { showScreen('newgame'); $('ngwarn').textContent = ''; ngConfirm = null; setTimeout(() => { $('inName').focus(); $('inName').select(); }, 30); };
+$('btnNewBack').onclick = () => showScreen('title');
+let ngConfirm = null;
+const cleanName = (v, d) => (String(v || '').replace(/\s+/g, ' ').trim().slice(0, 20) || d);
+$('btnStart').onclick = () => {
+  if (G.started) return;
+  const names = { player: cleanName($('inName').value, 'Traveler'), dog1: cleanName($('inDog1').value, 'Tippy'), dog2: cleanName($('inDog2').value, 'Izzy') };
+  if (slotExists(names.player) && ngConfirm !== names.player.toLowerCase()) {
+    ngConfirm = names.player.toLowerCase();
+    $('ngwarn').textContent = `There is already a saved game for ${names.player}. Press Start again to replace it, or choose another name.`;
+    return;
+  }
+  initAudio();
+  newGame(names);
+};
+for (const id of ['inName', 'inDog1', 'inDog2']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnStart').click(); });
+$('btnContinue').onclick = () => { renderSlots(); showScreen('load'); };
+$('btnLoadBack').onclick = () => showScreen('title');
+function renderSlots() {
+  const list = listSaves();
+  const CH = ['Washed Ashore', 'The Kapu Warriors', 'Spirits of the Forest', 'Fires of Pele', 'Kahakai', 'The Last Ember'];
+  $('slots').innerHTML = list.length ? list.map((s, i) => `<div class="slotrow"><div class="si"><b>${escHtml(s.name)}</b><small>${s.done ? 'Island healed (endless)' : 'Chapter ' + (s.ch + 1) + ' — ' + (CH[s.ch] || '')} · Day ${s.day} · with ${escHtml(s.dogs.join(' & '))}</small><small>Last saved ${s.savedAt ? new Date(s.savedAt).toLocaleString() : 'unknown'}</small></div><button data-play="${i}">Play</button><button class="del" data-del="${i}">Delete</button></div>`).join('') : '<p class="hint">No saved games yet.</p>';
+  $('slots').querySelectorAll('[data-play]').forEach((b) => b.onclick = () => { initAudio(); continueGame(list[+b.dataset.play].name); });
+  $('slots').querySelectorAll('[data-del]').forEach((b) => b.onclick = () => {
+    if (b.dataset.sure) { deleteSave(list[+b.dataset.del].name); renderSlots(); if (!hasSave()) { $('btnContinue').style.display = 'none'; showScreen('title'); } return; }
+    b.dataset.sure = '1'; b.textContent = 'Really delete?';
+  });
+}
+$('btnPauseQuests').onclick = () => openQuestLog();
+$('btnCloseQuest').onclick = () => setMode('play');
+$('btnQuestSave').onclick = () => { if (saveGame()) toast(`Saved ${G.names.player}'s game.`, 'good'); };
+$('btnMenu').onclick = () => { saveGame(); location.reload(); };
+function openQuestLog() { setMode('questlog'); showScreen('questlog'); renderQuestLog(); }
 $('btnHelp').onclick = () => { showScreen('help'); };
 $('btnHelpBack').onclick = () => { showScreen(G.started ? 'pause' : 'title'); };
 $('btnResume').onclick = () => { setMode('play'); };
-$('btnSave').onclick = () => { if (saveGame()) toast('Game saved.', 'good'); };
+$('btnSave').onclick = () => { if (saveGame()) { toast(`Saved ${G.names.player}'s game.`, 'good'); $('lastsave').textContent = 'Last saved ' + new Date().toLocaleTimeString() + '.'; } };
 $('btnPauseHelp').onclick = () => showScreen('help');
 $('btnRespawn').onclick = () => respawn();
 $('btnKeepPlaying').onclick = () => { setMode('play'); };
@@ -93,13 +131,28 @@ $('dialogue').addEventListener('click', () => advanceDialogue());
 if (hasSave()) $('btnContinue').style.display = 'inline-block';
 canvas.addEventListener('click', () => { if ((G.mode === 'play' || G.mode === 'build') && !input.locked) lockPointer(); });
 
-function newGame() {
+function newGame(names = { player: 'Traveler', dog1: 'Tippy', dog2: 'Izzy' }) {
+  if (G.started) return;
+  G.names = names; G.slot = names.player;
+  renameStoryDogs();
+  if (document.activeElement) document.activeElement.blur();
   G.started = true;
   setMode('play');
   startChapter(0, true);
+  saveGame();
 }
-function continueGame() {
-  if (!loadGame()) return newGame();
+function renameStoryDogs() {
+  const dogs = G.animals.filter((a) => a.story && !a.tamed);
+  dogs.forEach((a, i) => {
+    a.name = i === 0 ? G.names.dog1 : G.names.dog2;
+    if (a.label3d) { a.q.g.remove(a.label3d); a.label3d = makeLabel(a.name + '?', '#ffe7b0'); a.label3d.position.y = 1.9; a.label3d.scale.set(1.6, 0.4, 1); a.q.g.add(a.label3d); }
+  });
+}
+function continueGame(name) {
+  if (G.started) return;
+  if (document.activeElement) document.activeElement.blur();
+  if (!loadGame(name)) return;
+  renameStoryDogs();
   if (G.flags._respawnDogs) {
     delete G.flags._respawnDogs;
     spawnStoryDogs();
@@ -107,19 +160,23 @@ function continueGame() {
     for (const a of G.animals) if (a.story && !a.tamed && names.has(a.name)) { G.scene.remove(a.q.g); a.alive = false; }
     G.animals = G.animals.filter((a) => a.alive);
   }
+  applyCaveFlags();
   G.started = true;
   setMode('play');
-  startChapter(G.story.ch, false);
-  // restore objective index (startChapter resets it)
-  const saved = JSON.parse(localStorage.getItem('firesOfPele.save.v1')).story;
-  Object.assign(G.story, saved);
-  toast('Welcome back. Day ' + G.day + '.', 'good');
+  const saved = { ...G.story };
+  startChapter(Math.min(saved.ch, 5), !!G._newChapters);
+  Object.assign(G.story, saved);            // restore the objective index (startChapter resets it)
+  resumeObj(false);
+  refreshGrass(player.pos); streamNodes(player.pos, true); player.updateCamera(1);
+  toast(`Welcome back, ${G.names.player}. Day ${G.day}.`, 'good');
+  if (G.flags._oldWorld) { delete G.flags._oldWorld; toast('The island has grown! Your camp now stands on the new southern beach.', 'info', null, 7); }
+  if (G._newChapters) { delete G._newChapters; toast('New chapters are waiting for you after Kaʻula.', 'good', null, 6); }
 }
 G.onAutosave = () => { if (saveGame()) toast('Progress saved.', 'info'); };
 G.onVictory = () => {
   sfx('victory');
   setMode('victory'); showScreen('victory');
-  $('vstats').innerHTML = `Days survived: <b>${G.day}</b><br>Raids repelled: <b>${G.counters.raidsSurvived || 0}</b><br>Enemies defeated: <b>${G.stats.kills}</b><br>Structures built: <b>${G.stats.built}</b><br>Companions: <b>${G.animals.filter((a) => a.tamed).map((a) => a.name).join(', ') || 'none'}</b>`;
+  $('vstats').innerHTML = `Days survived: <b>${G.day}</b><br>Raids repelled: <b>${G.counters.raidsSurvived || 0}</b><br>Enemies defeated: <b>${G.stats.kills}</b><br>Structures built: <b>${G.stats.built}</b><br>Caves found: <b>${cavesFound()}/3</b><br>Companions: <b>${G.animals.filter((a) => a.tamed).map((a) => a.name).join(', ') || 'none'}</b>`;
   saveGame();
 };
 
@@ -163,7 +220,13 @@ function findInteract() {
     else if (!a.tamed && a.kind === 'wolf' && a.state !== 'aggro') consider(a.pos.x, a.pos.z, 'Ghost wolves must be weakened before they accept food', () => {});
     else if (a.tamed && a.hp < a.maxHp - 1) consider(a.pos.x, a.pos.z, `Feed ${a.name} to heal (1 🥥)`, () => a.feed(), 2.5);
   }
-  if (G.malu) consider(G.malu.pos.x, G.malu.pos.z, 'Talk to Kupuna Malu', () => talkToMalu());
+  npcInteracts(consider);
+  caveInteracts(consider);
+  storyInteracts(consider);
+  consider(LOC.petro.x, LOC.petro.z, 'Study the carved petroglyph', () => showDialogueLines([
+    { who: 'Petroglyph', text: 'A very old carving: a mountain, and a line of fire running down its <b>west side</b> into a dark hole.' },
+    { who: 'Petroglyph', text: 'Three round stones are cut beside the hole, like guards. Underneath, little marks that might be bats.' },
+  ], () => { G.flags.lore_petro = true; }), 3);
   for (const s of G.structures) if (s.def.produce && s.store > 0) consider(s.x, s.z, `Collect ${s.store} ${s.def.produce} from ${s.def.name}`, () => collectFrom(s));
   consider(LOC.spring.x, LOC.spring.z, 'Drink from the spring & fill gourds', () => {
     player.thirst = 100;
@@ -193,12 +256,15 @@ function handleKeys() {
     return;
   }
   if (m === 'craft') { if (pressed('KeyC') || pressed('Escape')) setMode('play'); return; }
+  if (m === 'questlog') { if (pressed('KeyJ') || pressed('Escape')) setMode('play'); return; }
   if (m === 'pause') { if (pressed('Escape')) setMode('play'); return; }
   if (m !== 'play' && m !== 'build') return;
   if (pressed('Escape')) { openPause(); return; }
   if (pressed('KeyB')) { setMode(m === 'build' ? 'play' : 'build'); return; }
   if (pressed('KeyC')) { setMode('craft'); showScreen('craft'); renderCraft(); return; }
   if (pressed('KeyP')) togglePetMode();
+  if (pressed('KeyJ')) { openQuestLog(); return; }
+  if (pressed('KeyK')) { if (saveGame()) toast(`Saved ${G.names.player}'s game.`, 'good'); }
   if (pressed('KeyM')) document.getElementById('minimap').classList.toggle('big');
   if (!player.alive) return;
   if (m === 'play') {
@@ -277,7 +343,10 @@ function frame() {
     updateEnemies(dt);
     updateProjectiles(dt);
     updateFX(dt);
+    updateCaves(dt);
+    updateNPCs(dt);
     updateStory(dt);
+    updateQuests(dt);
     interact = player.alive ? findInteract() : null;
     let prompt = interact ? `[E] ${interact.label}` : '';
     if (!prompt && G.hearth && G.cycle < CFG.DAY_FRAC - 0.03 && Math.hypot(G.hearth.x - player.pos.x, G.hearth.z - player.pos.z) < 7) prompt = '[T] Rest by the fire until dusk';
@@ -285,10 +354,11 @@ function frame() {
   } else if (G.mode === 'title') {
     // slow orbit for the title screen
     G.t += dt * 0.5;
-    const a = G.t * 0.05;
-    camera.position.set(Math.cos(a) * 120, 45, Math.sin(a) * 120);
-    camera.lookAt(0, 8, -10);
+    const a = G.t * 0.05, s = startPos();
+    camera.position.set(s.x + Math.cos(a) * 75, heightAt(s.x, s.z) + 32, s.z + Math.sin(a) * 75);
+    camera.lookAt(s.x, heightAt(s.x, s.z) + 4, s.z);
   }
+  updateWorld(dt);
   updateSky(dt);
   hudT -= dt;
   if (hudT <= 0 && G.mode !== 'title') { hudT = 0.1; updateHUD(); }
@@ -311,4 +381,10 @@ frame();
 
 // debug hook for automated testing
 window.__G = G;
-window.__debug = { setMode, startNight, endNight, saveGame, loadGame, respawn, THREE: THREE_NS };
+window.__debug = {
+  setMode, startNight, endNight, saveGame, loadGame, respawn, THREE: THREE_NS, talkNPC, NPCS, renderQuestLog, listSaves, startChapter,
+  quickStart: (names) => newGame(names || { player: 'Traveler', dog1: 'Tippy', dog2: 'Izzy' }),
+  continueGame, advanceDialogue, dialogueOpen,
+  interactNow: () => { const i = findInteract(); if (i) { i.action(); return i.label; } return null; },
+  teleport: (x, z) => { player.spawnAt(x, z); refreshGrass(player.pos); streamNodes(player.pos, true); player.updateCamera(1); },
+};

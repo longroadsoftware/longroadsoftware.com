@@ -1,6 +1,6 @@
 // HUD, toasts, crafting/invention panel, dialogue, screens and minimap.
-import { G, RES_ICON, RES_NAME, hasRes, payRes, costStr, count } from './state.js';
-import { timeInfo, LOC, heightAt, VOLC } from './world.js';
+import { G, RES_ICON, RES_NAME, hasRes, payRes, costStr, count, fmt, escHtml } from './state.js';
+import { timeInfo, LOC, heightAt, VOLC, PATHS, CAVES, WORLD } from './world.js';
 import { build, PIECES, INVENTIONS, structureHint } from './building.js';
 import { sfx } from './fx.js';
 
@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- toasts ----------
 export function toast(msg, kind = 'info', res = null, dur = 3.2) {
+  msg = fmt(msg).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   if (kind === 'res') {
     const el = document.createElement('div');
     el.className = 'feed-item';
@@ -60,9 +61,9 @@ export function updateHUD() {
   const hh = Math.floor(ti.hour), mm = Math.floor((ti.hour - hh) * 60);
   const cyc = 300;
   let until;
-  if (!ti.isNight) until = `Night in ${fmt((0.65 - G.cycle) * cyc)}`;
-  else until = `Dawn in ${fmt((1 - G.cycle) * cyc)}`;
-  $('clock').innerHTML = `<b>Day ${G.day}</b> · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ti.isNight ? '🌙' : '☀️'}<br><span class="${ti.isNight ? 'warn' : ''}">${until}</span>${G.raid.active ? `<br><span class="bad">⚔ Raid! ${G.enemies.filter((e) => e.raid && e.alive).length + G.raid.queue.length} raiders</span>` : ''}`;
+  if (!ti.isNight) until = `Night in ${fmtT((0.65 - G.cycle) * cyc)}`;
+  else until = `Dawn in ${fmtT((1 - G.cycle) * cyc)}`;
+  $('clock').innerHTML = `<span class="pname">${escHtml(G.names.player)}</span> · <b>Day ${G.day}</b> · ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ti.isNight ? '🌙' : '☀️'}<br><span class="${ti.isNight ? 'warn' : ''}">${until}</span>${G.raid.active ? `<br><span class="bad">⚔ Raid! ${G.enemies.filter((e) => e.raid && e.alive).length + G.raid.queue.length} raiders</span>` : ''}`;
   const inv = G.inv;
   $('inv').innerHTML = ['wood', 'stone', 'fiber', 'obsidian', 'food', 'water', 'bandage'].map((k) => `<div class="slot" title="${RES_NAME[k]}"><span>${RES_ICON[k]}</span><b>${inv[k] || 0}</b></div>`).join('');
   const W = { club: 'Driftwood Club', spear: 'Stone Spear', blade: 'Obsidian Blade' };
@@ -85,10 +86,10 @@ export function updateHUD() {
     $('buildinfo').innerHTML = `<b>${sel.icon} ${sel.name}</b> — ${sel.desc}${build.status ? `<br><span class="warn">${build.status}</span>` : ''}${build.target ? `<br><span class="tgt">🎯 ${structureHint(build.target)}</span>` : ''}<br><small>LMB place · R rotate · wheel/1-0 select · U upgrade/repair · V demolish · B exit</small>`;
   } else { bb.style.display = 'none'; $('buildinfo').style.display = 'none'; }
 }
-const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const fmtT = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export function setObjective(title, lines) {
-  $('objective').innerHTML = `<div class="chap">${title}</div>` + lines.map((l) => `<div class="obj ${l.done ? 'done' : l.active ? 'active' : 'todo'}">${l.done ? '✔' : l.active ? '➤' : '•'} ${l.text}${l.prog ? ` <span class="prog">${l.prog}</span>` : ''}${l.dist ? ` <span class="dist">${l.dist}</span>` : ''}</div>`).join('');
+  $('objective').innerHTML = `<div class="chap">${fmt(title)}</div>` + lines.map((l) => `<div class="obj ${l.done ? 'done' : l.active ? 'active' : 'todo'}">${l.done ? '✔' : l.active ? '➤' : '•'} ${fmt(l.text)}${l.prog ? ` <span class="prog">${l.prog}</span>` : ''}${l.dist ? ` <span class="dist">${l.dist}</span>` : ''}</div>`).join('');
 }
 
 // ---------- crafting & inventions ----------
@@ -135,6 +136,7 @@ export function renderCraft() {
 
 // ---------- dialogue ----------
 let dlg = null;
+G.showDialogue = (l, f) => showDialogue(l, f);
 export function showDialogue(lines, onDone) {
   dlg = { lines, i: 0, onDone };
   $('dialogue').style.display = 'block';
@@ -142,9 +144,9 @@ export function showDialogue(lines, onDone) {
 }
 function renderDlg() {
   const l = dlg.lines[dlg.i];
-  $('dlgwho').textContent = l.who || '';
+  $('dlgwho').innerHTML = fmt(l.who || '');
   $('dlgwho').style.display = l.who ? 'block' : 'none';
-  $('dlgtext').innerHTML = l.text;
+  $('dlgtext').innerHTML = fmt(l.text);
   $('dlgnext').textContent = dlg.i < dlg.lines.length - 1 ? 'Continue ▸' : 'Close ▸';
 }
 export function advanceDialogue() {
@@ -160,54 +162,85 @@ export const dialogueOpen = () => !!dlg;
 
 // ---------- screens ----------
 export function showScreen(id) {
-  for (const s of ['title', 'pause', 'dead', 'victory', 'craft', 'help']) $(s).style.display = s === id ? 'flex' : 'none';
+  for (const s of ['title', 'pause', 'dead', 'victory', 'craft', 'help', 'newgame', 'load', 'questlog']) $(s).style.display = s === id ? 'flex' : 'none';
 }
 
 // ---------- minimap ----------
+// Small map: a 150 m radius around you. Big map [M]: the whole island.
 let mapBase = null;
-const MAPR = 130;
-export function drawMinimap(big = false) {
-  const cv = $('minimap');
-  const S = cv.width;
-  const ctx = cv.getContext('2d');
-  if (!mapBase) {
-    mapBase = document.createElement('canvas'); mapBase.width = mapBase.height = 220;
-    const m = mapBase.getContext('2d');
-    const img = m.createImageData(220, 220);
-    for (let j = 0; j < 220; j++) for (let i = 0; i < 220; i++) {
-      const x = (i / 220 - 0.5) * 2 * MAPR, z = (j / 220 - 0.5) * 2 * MAPR;
-      const h = heightAt(x, z);
-      const dv = Math.hypot(x - VOLC.x, z - VOLC.z);
-      let c;
-      if (h < -2) c = [30, 90, 140]; else if (h < 0) c = [60, 150, 190]; else if (h < 1.9) c = [225, 210, 160];
-      else if (dv < 9) c = [200, 70, 20]; else if (dv < 24) c = [70, 60, 58]; else if (dv < 40) c = [110, 100, 88];
-      else c = [70 - h, 140 - h * 2, 60 - h];
-      const o = (j * 220 + i) * 4;
-      img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
-    }
-    m.putImageData(img, 0, 0);
+const MAPR = 460, MB = 512;
+function buildMapBase() {
+  mapBase = document.createElement('canvas'); mapBase.width = mapBase.height = MB;
+  const m = mapBase.getContext('2d');
+  const img = m.createImageData(MB, MB);
+  for (let j = 0; j < MB; j++) for (let i = 0; i < MB; i++) {
+    const x = (i / MB - 0.5) * 2 * MAPR, z = (j / MB - 0.5) * 2 * MAPR;
+    const h = heightAt(x, z);
+    const dv = Math.hypot(x - VOLC.x, z - VOLC.z);
+    const dbs = Math.hypot(x - LOC.blackSand.x, z - LOC.blackSand.z), dlf = Math.hypot(x - LOC.lavaField.x, z - LOC.lavaField.z);
+    let c;
+    if (h < -2) c = [30, 90, 140]; else if (h < 0) c = [60, 150, 190];
+    else if (h < 1.9) c = dbs < 60 ? [60, 55, 55] : [225, 210, 160];
+    else if (dv < 16) c = [200, 70, 20]; else if (dv < 53) c = [70, 60, 58]; else if (dv < 96) c = [110, 100, 88];
+    else if (dlf < 60) c = [55, 45, 42];
+    else c = [70 - h * 0.6, 140 - h * 1.2, 60 - h * 0.5];
+    const o = (j * MB + i) * 4;
+    img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
+  m.putImageData(img, 0, 0);
+  m.strokeStyle = 'rgba(150,110,60,0.85)'; m.lineWidth = 1.4; m.setLineDash([3, 2]);
+  const tp = (x, z) => [(x / MAPR / 2 + 0.5) * MB, (z / MAPR / 2 + 0.5) * MB];
+  m.beginPath();
+  for (const p of PATHS) { const [a, b] = tp(p.ax, p.az), [c2, d] = tp(p.bx, p.bz); m.moveTo(a, b); m.lineTo(c2, d); }
+  m.stroke();
+}
+export function drawMinimap() {
+  const cv = $('minimap');
+  const big = cv.classList.contains('big');
+  const S = big ? 520 : 220;
+  if (cv.width !== S) { cv.width = cv.height = S; }
+  const ctx = cv.getContext('2d');
+  if (!mapBase) buildMapBase();
+  const P = G.player;
+  const view = big ? MAPR : 150, cx = big ? 0 : P.pos.x, cz = big ? 0 : P.pos.z;
   ctx.clearRect(0, 0, S, S);
   ctx.save();
   ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.clip();
-  ctx.drawImage(mapBase, 0, 0, S, S);
-  const toMap = (x, z) => [(x / MAPR / 2 + 0.5) * S, (z / MAPR / 2 + 0.5) * S];
+  ctx.fillStyle = 'rgb(30,90,140)'; ctx.fillRect(0, 0, S, S);
+  const k = MB / (2 * MAPR);
+  ctx.drawImage(mapBase, (cx - view + MAPR) * k, (cz - view + MAPR) * k, 2 * view * k, 2 * view * k, 0, 0, S, S);
+  const toMap = (x, z) => [((x - cx) / view / 2 + 0.5) * S, ((z - cz) / view / 2 + 0.5) * S];
+  const R0 = S / 2 - 8;
   const dot = (x, z, col, r = 3) => { const [a, b] = toMap(x, z); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(a, b, r, 0, Math.PI * 2); ctx.fill(); };
-  const label = (x, z, t) => { const [a, b] = toMap(x, z); ctx.fillStyle = '#fff'; ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillText(t, a, b - 6); };
-  dot(LOC.cove.x, LOC.cove.z, '#7ef', 3); label(LOC.cove.x, LOC.cove.z, 'Malu');
-  dot(LOC.village.x, LOC.village.z, '#f44', 4); label(LOC.village.x, LOC.village.z, 'Kapu');
-  dot(LOC.wreck.x, LOC.wreck.z, '#da7', 3);
-  dot(LOC.spring.x, LOC.spring.z, '#4cf', 3);
+  const label = (x, z, t) => { const [a, b] = toMap(x, z); ctx.fillStyle = '#fff'; ctx.font = (big ? 12 : 10) + 'px system-ui'; ctx.textAlign = 'center'; ctx.fillText(t, a, b - 6); };
+  // places
+  const places = [[LOC.cove, '#7ef', 'Malu'], [LOC.village, '#f44', 'Kapu'], [LOC.fishing, '#7ef', 'Kahakai'], [LOC.falls, '#4cf', 'Falls'], [LOC.wreck, '#da7', big ? 'Pualena' : ''],
+    [LOC.spring, '#4cf', big ? 'Spring' : ''], [LOC.blackSand, '#ccc', big ? 'Black Sand' : ''], [LOC.islet, '#da7', big ? 'Moku Iki' : '']];
+  for (const [p, col, t] of places) { dot(p.x, p.z, col, 3); if (t) label(p.x, p.z, t); }
+  for (const c of CAVES) if (G.flags['cave_' + c.id]) { dot(c.x, c.z, '#b9f', 4); label(c.x, c.z, big ? c.name : 'Cave'); }
   if (G.hearth) { dot(G.hearth.x, G.hearth.z, '#fa3', 4); }
-  for (const s of G.structures) if (s.type !== 'hearth') dot(s.x, s.z, '#cb9', 1.2);
+  for (const s of G.structures) if (s.type !== 'hearth') dot(s.x, s.z, '#cb9', big ? 1 : 1.2);
   for (const e of G.enemies) if (e.alive) dot(e.pos.x, e.pos.z, e.isBoss ? '#f0f' : '#f22', e.isBoss ? 5 : 2.5);
   for (const a of G.animals) if (a.tamed && a.active) dot(a.pos.x, a.pos.z, '#5cf', 2.5);
-  if (G.objTarget) { const [a, b] = toMap(G.objTarget.x, G.objTarget.z); ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(a, b, 6 + Math.sin(G.t * 4) * 2, 0, Math.PI * 2); ctx.stroke(); }
-  const P = G.player;
+  // markers: clamp to the rim of the small map so you always know which way to go
+  const marker = (p, col, shape) => {
+    let [a, b] = toMap(p.x, p.z);
+    const dx = a - S / 2, dy = b - S / 2, d = Math.hypot(dx, dy);
+    const out = d > R0;
+    if (out) { a = S / 2 + dx / d * R0; b = S / 2 + dy / d * R0; }
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2;
+    if (shape === 'ring') { ctx.beginPath(); ctx.arc(a, b, (out ? 4 : 6) + Math.sin(G.t * 4) * 2, 0, Math.PI * 2); ctx.stroke(); }
+    else if (shape === 'diamond') { ctx.beginPath(); ctx.moveTo(a, b - 5); ctx.lineTo(a + 4, b); ctx.lineTo(a, b + 5); ctx.lineTo(a - 4, b); ctx.closePath(); ctx.stroke(); }
+    else { ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('!', a, b + 4); }
+  };
+  for (const g of G.questGivers || []) { const [a, b] = toMap(g.x, g.z); if (Math.hypot(a - S / 2, b - S / 2) < R0) marker(g, '#ffd84a', 'bang'); }
+  for (const q of G.questTargets || []) marker(q, '#6ef', 'diamond');
+  if (G.objTarget) marker(G.objTarget, '#ff0', 'ring');
   const [px, pz] = toMap(P.pos.x, P.pos.z);
   ctx.translate(px, pz); ctx.rotate(-P.camYaw);
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 5); ctx.lineTo(0, 2); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
   ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.stroke();
+  if (!big) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('N', S / 2, 14); }
 }

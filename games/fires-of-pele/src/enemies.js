@@ -403,13 +403,13 @@ export function initTotems() {
 
 // ---------------- Raid director ----------------
 function findSpawn(angle, from) {
-  for (let r = 62; r > 20; r -= 3) {
+  for (let r = 70; r > 20; r -= 3) {
     for (let da = 0; da < 1.2; da += 0.2) {
       for (const s of [1, -1]) {
         const a = angle + da * s;
         const x = from.x + Math.cos(a) * r, z = from.z + Math.sin(a) * r;
         const h = heightAt(x, z);
-        if (h > 0.6 && h < 9 && Math.hypot(x - LOC.village.x, z - LOC.village.z) > 25 && Math.hypot(x - VOLC.x, z - VOLC.z) > 30) return { x, z };
+        if (h > 0.6 && h < 40 && Math.hypot(x - LOC.village.x, z - LOC.village.z) > 40 && Math.hypot(x - VOLC.x, z - VOLC.z) > 72 && Math.hypot(x - LOC.fishing.x, z - LOC.fishing.z) > 40) return { x, z };
       }
     }
   }
@@ -446,7 +446,8 @@ export function startNight() {
   G.raid.active = true; G.raid.t = 0; G.raid.total = comp.length;
   sfx('drum');
   const smartTxt = smart >= 4 ? ' They are learning — expect flanks, retreats and siege brutes.' : smart >= 3 ? ' They come from several directions.' : smart >= 2 ? ' Torchbearers will target your weakest walls.' : '';
-  toast(`Night ${n}: war drums echo across the island! ${comp.length} raiders approach.${smartTxt}`, 'bad', null, 7);
+  if (G.counters.bossKilled) toast(`Night ${n}: ash spirits rise from the mountain and come for your fire! ${comp.length} approach.`, 'bad', null, 7);
+  else toast(`Night ${n}: war drums echo across the island! ${comp.length} raiders approach.${smartTxt}`, 'bad', null, 7);
 }
 
 export function endNight() {
@@ -485,8 +486,8 @@ export function updateEnemies(dt) {
   villageCD -= dt;
   const P = G.player;
   const dV = Math.hypot(P.pos.x - LOC.village.x, P.pos.z - LOC.village.z);
-  if (dV < 30 && villageCD <= 0 && P.alive && !G.counters.bossKilled) {
-    const alive = G.enemies.filter((e) => e.alive && e.guard && !e.isBoss).length;
+  if (dV < 40 && villageCD <= 0 && P.alive && !G.counters.bossKilled) {
+    const alive = G.enemies.filter((e) => e.alive && e.guard && !e.isBoss && !e.caveGuard).length;
     if (alive === 0) {
       villageCD = 75;
       const n = 3 + G.story.ch + (G.story.ch >= 3 ? 2 : 0);

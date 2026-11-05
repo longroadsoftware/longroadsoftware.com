@@ -121,6 +121,24 @@
   #dlgwho { color: #8fe0b0; font-weight: 800; margin-bottom: 6px; }
   #dlgtext { font-size: 17px; line-height: 1.55; } #dlgtext i { color: var(--sand); }
   #dlgnext { text-align: right; font-size: 12px; opacity: .7; margin-top: 8px; }
+  #clock .pname { color: var(--sand); font-weight: 700; }
+  .form { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; text-align: left; margin: 10px auto 18px; max-width: 420px; }
+  .form label { color: var(--sand); font-weight: 700; font-size: 14px; }
+  .form input { pointer-events: auto; font: inherit; font-size: 16px; padding: 8px 12px; border-radius: 10px; border: 2px solid rgba(244,227,181,0.4); background: rgba(255,255,255,0.08); color: #fff; user-select: text; }
+  .form input:focus { outline: none; border-color: var(--warn); }
+  #ngwarn { color: var(--warn); font-size: 13px; min-height: 18px; }
+  #slots { max-height: 52vh; overflow: auto; margin: 6px 0 14px; }
+  .slotrow { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 8px 12px; margin: 6px 0; text-align: left; }
+  .slotrow .si { flex: 1; } .slotrow .si b { color: var(--sand); font-size: 16px; } .slotrow .si small { display: block; opacity: .75; font-size: 12px; }
+  .slotrow button { font-size: 13px; padding: 7px 16px; margin: 0; }
+  .slotrow button.del { background: linear-gradient(#e88,#b44); box-shadow: 0 3px 0 #722; color: #fff; }
+  #questlog .box { max-width: 760px; max-height: 88vh; overflow: auto; text-align: left; }
+  #questlog h2 small { font-size: 13px; opacity: .7; font-weight: 500; margin-left: 8px; }
+  .qsec { margin-bottom: 14px; } .qsec h3 { color: var(--sand); margin: 10px 0 6px; font-size: 15px; }
+  .qt { font-weight: 700; margin: 2px 0 4px; } .qo { font-size: 14px; margin: 3px 0 3px 6px; } .qo.done { opacity: .6; } .dim { opacity: .55; }
+  .qq { background: rgba(255,255,255,0.06); border-radius: 10px; padding: 8px 12px; margin: 6px 0; } .qq.done { opacity: .6; }
+  .qr { font-size: 12px; color: #ffd890; margin-top: 3px; }
+  #lastsave { font-size: 12px; opacity: .7; }
   #victory h1 { color: var(--sand); font-size: 56px; margin: 0 0 10px; }
 </style>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
@@ -156,15 +174,26 @@
   <h3>An On Island Time Adventure</h3>
   <div>
     <button id="btnNew">New Game</button>
-    <button id="btnContinue">Continue</button>
+    <button id="btnContinue">Continue / Load</button>
     <button id="btnHelp" class="secondary">How to Play</button>
   </div>
   <p id="touchNote">This game needs a keyboard and mouse. Please open it on a Mac or PC.</p>
   <a id="homeLink" href="https://longroadsoftware.com/">Long Road Software</a>
 </div>
+<div id="newgame" class="screen"><div class="box"><h2>A New Castaway</h2>
+  <div class="form">
+    <label for="inName">Your name</label><input id="inName" maxlength="20" value="Traveler" autocomplete="off" spellcheck="false">
+    <label for="inDog1">First dog</label><input id="inDog1" maxlength="16" value="Tippy" autocomplete="off" spellcheck="false">
+    <label for="inDog2">Second dog</label><input id="inDog2" maxlength="16" value="Izzy" autocomplete="off" spellcheck="false">
+  </div>
+  <div id="ngwarn"></div>
+  <button id="btnStart">Start</button><button id="btnNewBack" class="secondary">Back</button>
+  <p class="hint">Each name has its own save, so everyone in the family can keep their own island.</p></div></div>
+<div id="load" class="screen"><div class="box"><h2>Continue a Journey</h2><div id="slots"></div><button id="btnLoadBack" class="secondary">Back</button></div></div>
+<div id="questlog" class="screen"><div class="box"><div id="questbody"></div><div style="text-align:center"><button id="btnQuestSave" class="secondary">Save</button><button id="btnCloseQuest">Close</button></div></div></div>
 <div id="pause" class="screen"><div class="box"><h2>Paused</h2>
-  <button id="btnResume">Resume</button><button id="btnSave" class="secondary">Save Game</button><button id="btnPauseHelp" class="secondary">Controls</button>
-  <p class="hint">Progress also autosaves every dawn and at the end of each chapter.</p></div></div>
+  <button id="btnResume">Resume</button><button id="btnSave" class="secondary">Save Game</button><button id="btnPauseQuests" class="secondary">Quest Log</button><button id="btnPauseHelp" class="secondary">Controls</button><button id="btnMenu" class="secondary">Main Menu</button>
+  <p class="hint">Progress also autosaves every dawn and at the end of each chapter. <span id="lastsave"></span></p></div></div>
 <div id="help" class="screen"><div class="box"><h2>How to Play</h2>
   <table>
     <tr><td>W A S D</td><td>Move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr>
@@ -178,13 +207,14 @@
     <tr><td>F / G / H</td><td>Eat food / drink water / use bandage</td></tr>
     <tr><td>P</td><td>Companions: follow you ⇄ guard the base</td></tr>
     <tr><td>T</td><td>Rest at your Hearth until dusk</td></tr>
+    <tr><td>J</td><td>Quest log: main story, side quests, caves found · <b>K</b> quick save</td></tr>
     <tr><td>M</td><td>Toggle large map · <b>Esc</b> pause</td></tr>
   </table>
-  <p style="font-size:13px;opacity:.85;max-width:620px;margin:0 auto 14px">Raiders come every night once your Hearth is lit, and each night is harder. Wood walls → stone → obsidian. Weaken ghost wolves to tame them; feed dogs and boars. Invent rain catchers, gardens and fish traps to stay fed.</p>
+  <p style="font-size:13px;opacity:.85;max-width:620px;margin:0 auto 14px">Raiders come every night once your Hearth is lit, and each night is harder. Wood walls → stone → obsidian. Weaken ghost wolves to tame them; feed dogs and boars. Invent rain catchers, gardens and fish traps to stay fed. The island is big: follow the dirt trails (they are faster), talk to people marked <b>!</b> for side quests, and keep an eye out for hidden caves.</p>
   <button id="btnHelpBack">Back</button></div></div>
 <div id="craft" class="screen"><div class="box"><div id="craftbody"></div><div style="text-align:center"><button id="btnCloseCraft" class="secondary">Close</button></div></div></div>
 <div id="dead" class="screen"><div class="box"><h2>You have fallen</h2><p id="deadmsg"></p><button id="btnRespawn">Wake at the Hearth</button></div></div>
-<div id="victory" class="screen"><div class="box"><h1>🌋 The Curse is Lifted</h1><p id="vstats" style="line-height:1.8"></p>
+<div id="victory" class="screen"><div class="box"><h1>🌋 The Island is Healed</h1><p id="vstats" style="line-height:1.8"></p>
   <p class="hint">The raids continue for those who wish to stay on island time.</p><button id="btnKeepPlaying">Keep Playing</button></div></div>
 <div id="fade"></div>
 <script type="module" src="./src/main.js"></script>

@@ -8,6 +8,7 @@ export const input = {
 export function initInput(canvas) {
   input.canvas = canvas;
   addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;   // typing a name
     if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     input.keys.add(e.code);

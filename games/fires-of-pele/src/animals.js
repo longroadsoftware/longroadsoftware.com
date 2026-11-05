@@ -89,6 +89,7 @@ export class Animal {
       if (this.kind === 'wolf' && this.state !== 'submissive') { this.state = 'aggro'; this.stateT = 15; }
       if (this.hp <= 0) {
         this.alive = false;
+        count('killed_' + this.kind);
         const meat = this.kind === 'boar' ? 3 : 2;
         G.inv.food += meat; count('foodGathered', meat);
         toast(`+${meat} food`, 'res', 'food');
@@ -230,8 +231,8 @@ export function spawnStoryDogs() {
   const inward = { x: -Math.cos(w.a), z: -Math.sin(w.a) };
   const side = { x: -inward.z, z: inward.x };
   const defs = [
-    { name: 'Tippy', color: 0xd9b48f, accent: 0xffffff, s: 1 },
-    { name: 'Izzy', color: 0x3a3a3a, accent: 0xf2f2f2, s: -1 },
+    { name: G.names.dog1, color: 0xd9b48f, accent: 0xffffff, s: 1 },
+    { name: G.names.dog2, color: 0x3a3a3a, accent: 0xf2f2f2, s: -1 },
   ];
   for (const d of defs) {
     const x = w.x + inward.x * 9 + side.x * 3 * d.s, z = w.z + inward.z * 9 + side.z * 3 * d.s;
@@ -248,16 +249,24 @@ Animal.prototype.tame = function () {
   if (this.tamed && this.story) count('tamed_story');
 };
 
+// a few boars rooting in the Kahakai taro fields (side of chapter 5)
+export function spawnFieldBoars(n = 3) {
+  for (let i = 0; i < n; i++) {
+    const p = landPoint(LOC.fields.x, LOC.fields.z, 4, 14);
+    if (p) { const b = new Animal('boar', p.x, p.z); b.fieldBoar = true; G.animals.push(b); }
+  }
+}
+
 export function spawnWildlife(initial = false) {
   const wild = (k) => G.animals.filter((a) => a.kind === k && !a.tamed && a.alive && !a.story).length;
-  const want = { dog: 4, boar: 6, wolf: 5 };
+  const want = { dog: 7, boar: 16, wolf: 5 };
   for (const k in want) {
     let n = want[k] - wild(k);
     while (n-- > 0) {
       let p;
       if (k === 'wolf') p = landPoint(LOC.den.x, LOC.den.z, 2, 16);
-      else if (k === 'boar') p = landPoint(0, 0, 30, 90, (x, z, h) => h > 3 && distVolcano(x, z) > 40 && Math.hypot(x - LOC.camp.x, z - LOC.camp.z) > 30);
-      else p = landPoint(0, 0, 40, 95, (x, z, h) => h < 6 && Math.hypot(x - LOC.camp.x, z - LOC.camp.z) > 25 && Math.hypot(x - LOC.village.x, z - LOC.village.z) > 30);
+      else if (k === 'boar') p = landPoint(0, 0, 60, 300, (x, z, h) => h > 3 && distVolcano(x, z) > 96 && Math.hypot(x - LOC.camp.x, z - LOC.camp.z) > 30 && Math.hypot(x - LOC.fishing.x, z - LOC.fishing.z) > 35);
+      else p = landPoint(0, 0, 100, 320, (x, z, h) => h < 6 && Math.hypot(x - LOC.camp.x, z - LOC.camp.z) > 25 && Math.hypot(x - LOC.village.x, z - LOC.village.z) > 30);
       if (!p) continue;
       if (!initial && Math.hypot(p.x - G.player.pos.x, p.z - G.player.pos.z) < 35) continue;
       G.animals.push(new Animal(k, p.x, p.z));
@@ -267,7 +276,15 @@ export function spawnWildlife(initial = false) {
 
 let wildT = 60;
 export function updateAnimals(dt) {
-  for (const a of G.animals) a.update(dt);
+  const P = G.player.pos;
+  for (const a of G.animals) {
+    if (!a.tamed && !a.story) {
+      const far = Math.abs(a.pos.x - P.x) > 170 || Math.abs(a.pos.z - P.z) > 170;
+      a.q.g.visible = !far;
+      if (far) continue;                     // distant wildlife sleeps until you come near
+    }
+    a.update(dt);
+  }
   G.animals = G.animals.filter((a) => a.alive);
   wildT -= dt;
   if (wildT <= 0) { wildT = 60; spawnWildlife(false); }

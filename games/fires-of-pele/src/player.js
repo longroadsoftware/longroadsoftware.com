@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { G, count } from './state.js';
 import { makeHumanoid, animHumanoid, setWeapon } from './models.js';
 import { input, held, pressed } from './input.js';
-import { heightAt, distVolcano, LOC } from './world.js';
-import { resolveCircle } from './physics.js';
+import { heightAt, distVolcano, LOC, trailDist } from './world.js';
+import { resolveCircle, queryStatic, distToStructure } from './physics.js';
 import { findNodeInFront, harvest } from './resources.js';
 import { spawnProjectile } from './projectiles.js';
 import { burst, sfx } from './fx.js';
@@ -18,6 +18,47 @@ export const WEAPONS = {
 };
 
 const ray = new THREE.Raycaster();
+
+// Camera collision: march from the player's head toward the wanted camera spot and return the clear distance.
+const CAM_MARGIN = 0.3, CAM_STEP = 0.2;
+const STRUCT_H = { wall: 2.7, gate: 2.7, tower: 4.6, kennel: 2.4, rain: 2.2, ballista: 1.9, hearth: 0.8 };
+const _cp = new THREE.Vector3();
+export function cameraClearance(from, dir, len) {
+  const cands = [], seen = new Set();
+  for (let s = 0; ; s += 6) {
+    const k = Math.min(s, len);
+    queryStatic(from.x + dir.x * k, from.z + dir.z * k, (c) => {
+      if (seen.has(c)) return; seen.add(c);
+      if (c.node && !c.node.alive) return;
+      if (Math.hypot(from.x - c.x, from.z - c.z) < c.r + CAM_MARGIN) return;   // never trap the pivot itself
+      if (c.base === undefined) c.base = heightAt(c.x, c.z) - 0.4;
+      cands.push(c);
+    });
+    if (k >= len) break;
+  }
+  const structs = [];
+  for (const st of G.structures) {
+    if (!st.alive || !st.block || st.gate) continue;
+    if (Math.hypot(st.x - from.x, st.z - from.z) > len + 4) continue;
+    if (distToStructure(st, from.x, from.z) < CAM_MARGIN) continue;
+    structs.push(st);
+  }
+  const blockers = G.camBlockers || [];
+  for (let s = 0.3; s <= len; s += CAM_STEP) {
+    _cp.copy(from).addScaledVector(dir, s);
+    let hit = _cp.y < heightAt(_cp.x, _cp.z) + 0.22;
+    if (!hit) for (const c of cands) {
+      const dx = _cp.x - c.x, dz = _cp.z - c.z, m = c.r + CAM_MARGIN;
+      if (dx * dx + dz * dz < m * m && _cp.y < c.base + (c.h ?? 6)) { hit = true; break; }
+    }
+    if (!hit) for (const st of structs) {
+      if (distToStructure(st, _cp.x, _cp.z) < CAM_MARGIN && _cp.y < st.y + (STRUCT_H[st.type] ?? 2)) { hit = true; break; }
+    }
+    if (!hit) for (const b of blockers) if (b(_cp, from)) { hit = true; break; }
+    if (hit) return Math.max(0.25, s - CAM_STEP);
+  }
+  return len;
+}
 
 export class Player {
   constructor(scene) {
@@ -72,7 +113,9 @@ export class Player {
     const ground0 = heightAt(this.pos.x, this.pos.z);
     const inWater = ground0 < -0.45;
     const sprint = moving && held('ShiftLeft') && this.stamina > 1 && !inWater;
-    let speed = sprint ? 9.2 : 5.6;
+    let speed = sprint ? 10.5 : 6.4;
+    if (trailDist(this.pos.x, this.pos.z) < 2.2) speed *= 1.15;          // trails are quicker going
+    if (G.flags.swift) speed *= 1.1;
     if (inWater) speed *= 0.55;
     if (this.attackT >= 0) speed *= 0.6;
     this.stamina = clamp(this.stamina + (sprint ? -22 : 14) * dt, 0, 100);
@@ -125,8 +168,8 @@ export class Player {
     } else if (this.hunger > 30 && this.thirst > 30 && G.t - this.lastHurt > 5) {
       this.hp = Math.min(this.maxHp, this.hp + 1.4 * dt);
     }
-    if (!G.flags.lavaCooled && distVolcano(this.pos.x, this.pos.z) < 3.8 && this.pos.y < LOC.craterH + 1.2) {
-      this.hurt(28 * dt, 'lava', true);
+    if (!G.flags.lavaCooled && distVolcano(this.pos.x, this.pos.z) < 5.2 && this.pos.y < LOC.craterH + 1.2) {
+      this.hurt((G.flags.firewalk ? 8 : 28) * dt, 'lava', true);
       if (Math.random() < dt * 10) burst(this.pos.clone(), 0xff6a10, 2, 3, 0.1);
     }
 
@@ -146,10 +189,20 @@ export class Player {
     const gh = heightAt(want.x, want.z) + 0.5;
     if (want.y < gh) want.y = gh;
     if (want.y < -0.2) want.y = -0.2;
-    this.camPos.lerp(want, Math.min(1, dt * 18));
-    if (this.camPos.lengthSq() === 0 || this.camPos.distanceTo(want) > 20) this.camPos.copy(want);
+    // Pull the camera in when trees, rocks, huts, walls, cave rock or hills sit between it and the player.
+    const ray = want.clone().sub(target);
+    const full = Math.max(0.01, ray.length());
+    ray.divideScalar(full);
+    const free = cameraClearance(target, ray, full);
+    if (this.camCur === undefined || dt >= 1) this.camCur = free;
+    else if (free < this.camCur) this.camCur = free;                       // snap in: never sit inside anything
+    else this.camCur += (free - this.camCur) * Math.min(1, dt * 3.5);       // ease back out smoothly
+    this.camPos.copy(target).addScaledVector(ray, this.camCur);
+    const fh = heightAt(this.camPos.x, this.camPos.z) + 0.25;
+    if (this.camPos.y < fh) this.camPos.y = fh;
     G.camera.position.copy(this.camPos);
-    G.camera.lookAt(target.add(right));
+    this.h.g.visible = this.camCur > 0.8;
+    G.camera.lookAt(target.add(right.multiplyScalar(Math.min(1, this.camCur / this.camDist))));
   }
 
   doHit() {
@@ -190,7 +243,7 @@ export class Player {
     ray.setFromCamera({ x: 0, y: 0 }, G.camera);
     const from = this.pos.clone(); from.y += 1.6;
     let aim = ray.ray.origin.clone().addScaledVector(ray.ray.direction, 70);
-    const hit = ray.intersectObject(G.terrain, false)[0];
+    const hit = ray.intersectObject(G.terrain, true)[0];
     if (hit && hit.distance < 70) aim = hit.point;
     // prefer an enemy close to the crosshair ray
     let best = null, bs = 1.6;
@@ -205,7 +258,7 @@ export class Player {
     const dist = aim.distanceTo(from), tt = dist / speed;
     const v = aim.clone().sub(from).normalize().multiplyScalar(speed);
     v.y += 0.5 * grav * tt;
-    spawnProjectile({ pos: from, vel: v, dmg: 15, owner: 'player', grav, color: 0x8a8a86, size: 0.13 });
+    spawnProjectile({ pos: from, vel: v, dmg: G.flags.slingPlus ? 30 : 15, owner: 'player', grav, color: 0x8a8a86, size: 0.13 });
     sfx('sling');
   }
 

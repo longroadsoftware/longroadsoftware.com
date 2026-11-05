@@ -116,6 +116,7 @@ export function sfx(name) {
     case 'drum': for (let i = 0; i < 6; i++) { tone(70, 0.35, 'sine', 0.7, 0.5, i * 0.38); noise(0.1, 200, 1, 0.3); } break;
     case 'dawn': [392, 523, 659, 784].forEach((f, i) => tone(f, 0.5, 'sine', 0.15, 0, i * 0.18)); break;
     case 'crumble': noise(0.5, 300, 0.6, 0.6, 'lowpass'); break;
+    case 'draft': noise(1.6, 420, 0.4, 0.22, 'lowpass'); tone(196, 1.2, 'sine', 0.05, 0.4); break;
     case 'roar': tone(90, 1.0, 'sawtooth', 0.35, 0.5); noise(0.9, 250, 0.8, 0.4, 'lowpass'); break;
     case 'bark': tone(500, 0.07, 'square', 0.12, 0.6); tone(450, 0.07, 'square', 0.12, 0.6, 0.12); break;
     case 'victory': [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, 0.35, 'triangle', 0.2, 0, i * 0.16)); break;

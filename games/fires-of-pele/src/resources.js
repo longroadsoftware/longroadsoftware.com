@@ -2,17 +2,18 @@
 import * as THREE from 'three';
 import { G, count } from './state.js';
 import { part, merge, MAT, mulberry32, lumpy } from './util.js';
-import { heightAt, distVolcano, LOC, WORLD } from './world.js';
+import { heightAt, distVolcano, LOC, WORLD, CAVES, trailDist } from './world.js';
 import { addStatic } from './physics.js';
 import { burst, sfx } from './fx.js';
 
 export const NODE_TYPES = {
-  palm: { res: 'wood', per: 2, hits: 5, r: 0.38, tier: 1, sound: 'chop', bonus: { food: 1, water: 1 }, color: 0x8a6a44, label: 'Palm tree' },
-  tree: { res: 'wood', per: 3, hits: 6, r: 0.55, tier: 1, sound: 'chop', color: 0x6b4a2e, label: 'Koa tree' },
-  rock: { res: 'stone', per: 2, hits: 6, r: 1.05, tier: 1, sound: 'stone', color: 0x9a9a95, label: 'Boulder' },
+  palm: { res: 'wood', per: 2, h: 5.4, hits: 5, r: 0.38, tier: 1, sound: 'chop', bonus: { food: 1, water: 1 }, color: 0x8a6a44, label: 'Palm tree' },
+  tree: { res: 'wood', per: 3, h: 5.0, hits: 6, r: 0.55, tier: 1, sound: 'chop', color: 0x6b4a2e, label: 'Koa tree' },
+  rock: { res: 'stone', per: 2, h: 1.5, hits: 6, r: 1.05, tier: 1, sound: 'stone', color: 0x9a9a95, label: 'Boulder' },
   flax: { res: 'fiber', per: 2, hits: 3, r: 0, tier: 1, sound: 'rustle', color: 0x9bb54a, label: 'Flax' },
   berry: { res: 'food', per: 1, hits: 3, r: 0, tier: 1, sound: 'rustle', color: 0xd03040, label: 'Berry bush' },
-  obsidian: { res: 'obsidian', per: 1, hits: 7, r: 0.85, tier: 2, sound: 'stone', color: 0x5a3a8a, label: 'Obsidian' },
+  crystal: { res: 'obsidian', per: 2, hits: 6, r: 0.7, h: 1.8, tier: 2, sound: 'stone', color: 0x7fd4ff, label: 'Crystal vein' },
+  obsidian: { res: 'obsidian', per: 1, h: 1.6, hits: 7, r: 0.85, tier: 2, sound: 'stone', color: 0x5a3a8a, label: 'Obsidian' },
 };
 
 function leafGeo(len = 2.6, w = 0.62, droop = 0.9) {
@@ -81,6 +82,12 @@ function geoFor(type) {
     }
     return merge(ps);
   }
+  if (type === 'crystal') return merge([
+    part(new THREE.OctahedronGeometry(0.5, 0), 0x8fe0ff, { pos: [0, 0.8, 0], scale: [0.6, 1.9, 0.6] }),
+    part(new THREE.OctahedronGeometry(0.38, 0), 0x6fc8ff, { pos: [0.45, 0.5, 0.15], scale: [0.6, 1.6, 0.6], rot: [0, 0, -0.5] }),
+    part(new THREE.OctahedronGeometry(0.32, 0), 0xb0f0ff, { pos: [-0.4, 0.4, -0.2], scale: [0.6, 1.5, 0.6], rot: [0.4, 0, 0.5] }),
+    part(new THREE.DodecahedronGeometry(0.6, 0), 0x3a3a40, { pos: [0, 0.1, 0], scale: [1.4, 0.4, 1.2] }),
+  ]);
   if (type === 'obsidian') return merge([
     part(new THREE.OctahedronGeometry(0.7, 0), 0x1d1626, { pos: [0, 0.7, 0], scale: [0.8, 1.6, 0.8] }),
     part(new THREE.OctahedronGeometry(0.5, 0), 0x2a1f3a, { pos: [0.5, 0.45, 0.2], scale: [0.7, 1.3, 0.7], rot: [0, 0, -0.4] }),
@@ -88,37 +95,57 @@ function geoFor(type) {
   ]);
 }
 
-const groups = {};
+const groups = {}, farGroups = {};
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 function nearZone(x, z) {
-  const zones = [[LOC.camp, 17], [LOC.village, 22], [LOC.cove, 9], [LOC.spring, 7], [LOC.wreck, 7]];
-  return zones.some(([p, r]) => Math.hypot(x - p.x, z - p.z) < r);
+  const zones = [[LOC.camp, 17], [LOC.village, 22], [LOC.cove, 9], [LOC.spring, 7], [LOC.wreck, 7], [LOC.fishing, 32], [LOC.fields, 12], [LOC.canoe, 8],
+    [LOC.falls, 10], [LOC.shrine, 7], [LOC.petro, 3], [LOC.blackSand, 12]];
+  if (zones.some(([p, r]) => Math.hypot(x - p.x, z - p.z) < r)) return true;
+  for (const c of CAVES) if (Math.hypot(x - c.x, z - c.z) < c.R + 5) return true;
+  return trailDist(x, z) < 1.8;
 }
 
+// Only nodes within STREAM_R of the player are drawn; the instanced buffers are refilled as you travel.
+const STREAM_R = 170, NEAR_R = 62;
+let streamAt = null;
 export function generateNodes(scene) {
   const rng = mulberry32(42);
-  const want = { palm: 150, tree: 230, rock: 120, flax: 120, berry: 80, obsidian: 45 };
+  const want = { palm: 1500, tree: 2300, rock: 1200, flax: 1200, berry: 800, obsidian: 450 };
   const cand = {};
+  const grid = new Map();
+  const gk = (x, z) => Math.floor(x / 2.2) * 4099 + Math.floor(z / 2.2);
+  const crowded = (x, z) => {
+    const cx = Math.floor(x / 2.2), cz = Math.floor(z / 2.2);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      const a = grid.get((cx + i) * 4099 + cz + j);
+      if (a) for (const c of a) if (Math.hypot(c.x - x, c.z - z) < 2.2) return true;
+    }
+    return false;
+  };
+  const add = (t, c) => { cand[t].push(c); const k = gk(c.x, c.z); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(c); };
   for (const t in want) cand[t] = [];
+  cand.crystal = [];
+  const lf = LOC.lavaField;
   for (const t in want) {
     let tries = 0;
-    while (cand[t].length < want[t] && tries < 40000) {
+    while (cand[t].length < want[t] && tries < 400000) {
       tries++;
-      const x = (rng() - 0.5) * WORLD * 0.75, z = (rng() - 0.5) * WORLD * 0.75;
+      const x = (rng() - 0.5) * WORLD * 0.86, z = (rng() - 0.5) * WORLD * 0.86;
       const h = heightAt(x, z);
       const dv = distVolcano(x, z);
       if (h < 0.4 || nearZone(x, z)) continue;
+      const dLF = Math.hypot(x - lf.x, z - lf.z);
       let ok = false;
-      if (t === 'palm') ok = h < 3.2 && dv > 40;
-      else if (t === 'tree') ok = h > 2.6 && dv > 34;
-      else if (t === 'rock') ok = h > 1.2 && (dv > 12);
-      else if (t === 'flax') ok = h > 1.5 && h < 12 && dv > 32;
-      else if (t === 'berry') ok = h > 2.5 && dv > 36;
-      else if (t === 'obsidian') ok = dv > 10 && dv < 30;
+      if (t === 'palm') ok = h < 3.6 && dv > 96 && dLF > 55;
+      else if (t === 'tree') ok = h > 2.6 && dv > 82 && dLF > 60;
+      else if (t === 'rock') ok = h > 1.2 && dv > 28;
+      else if (t === 'flax') ok = h > 1.5 && h < 30 && dv > 78 && dLF > 60;
+      else if (t === 'berry') ok = h > 2.5 && dv > 86 && dLF > 60;
+      else if (t === 'obsidian') ok = (dv > 24 && dv < 72) || dLF < 50;
       if (!ok) continue;
-      if (cand[t].some((c) => Math.hypot(c.x - x, c.z - z) < 2.2)) continue;
-      cand[t].push({ x, z, rot: rng() * Math.PI * 2, s: 0.8 + rng() * 0.45 });
+      if (crowded(x, z)) continue;
+      add(t, { x, z, rot: rng() * Math.PI * 2, s: 0.8 + rng() * 0.45 });
     }
   }
   // guarantee a few starter nodes near the camp
@@ -126,35 +153,77 @@ export function generateNodes(scene) {
     for (let i = 0; i < n; i++) {
       const a = rng() * Math.PI * 2, r = rmin + rng() * (rmax - rmin);
       const x = LOC.camp.x + Math.cos(a) * r, z = LOC.camp.z + Math.sin(a) * r;
-      if (heightAt(x, z) > 0.5) cand[t].push({ x, z, rot: rng() * 6, s: 1 });
+      if (heightAt(x, z) > 0.5 && trailDist(x, z) > 1.8) cand[t].push({ x, z, rot: rng() * 6, s: 1 });
     }
   };
   near('palm', 8, 18, 30); near('rock', 5, 18, 30); near('flax', 6, 18, 30); near('berry', 5, 18, 32);
+  // rare crystal veins and obsidian inside the caves
+  for (const c of CAVES) {
+    const entA = Math.atan2(c.ez, c.ex);
+    const n = c.id === 'sea' ? 4 : 3;
+    for (let i = 0; i < n; i++) {
+      const a = entA + Math.PI + (i - (n - 1) / 2) * 0.55 + 0.25, r = c.R * (0.62 + (i % 2) * 0.12);
+      cand.crystal.push({ x: c.x + Math.cos(a) * r, z: c.z + Math.sin(a) * r, rot: rng() * 6, s: 0.9 + rng() * 0.3 });
+    }
+    if (c.id === 'lava') for (let i = 0; i < 3; i++) {
+      const a = entA + 1.6 + i * 0.5, r = c.R * 0.66;
+      cand.obsidian.push({ x: c.x + Math.cos(a) * r, z: c.z + Math.sin(a) * r, rot: rng() * 6, s: 1.1 });
+    }
+  }
   for (const t in cand) {
     const list = cand[t];
-    const im = new THREE.InstancedMesh(geoFor(t), t === 'obsidian' ? MAT.shiny : MAT.std, list.length);
-    im.castShadow = true; im.receiveShadow = true;
-    groups[t] = im;
+    const mat = t === 'obsidian' ? MAT.shiny : t === 'crystal' ? crystalMat : MAT.std;
+    // two buffers per type: near nodes cast shadows, far ones (outside the shadow map anyway) do not
+    const geo = geoFor(t);
+    const im = new THREE.InstancedMesh(geo, mat, list.length), far = new THREE.InstancedMesh(geo, mat, list.length);
+    im.castShadow = t !== 'crystal'; im.receiveShadow = true; far.castShadow = false; far.receiveShadow = true;
+    im.frustumCulled = far.frustumCulled = false;
+    im.count = far.count = 0;
+    groups[t] = im; farGroups[t] = far;
+    scene.add(far);
     list.forEach((c, i) => {
       const node = {
         type: t, def: NODE_TYPES[t], x: c.x, z: c.z, y: heightAt(c.x, c.z) - 0.05,
-        rot: c.rot, s: c.s, hp: NODE_TYPES[t].hits, alive: true, idx: i, pulse: 0, respawnAt: 0,
+        rot: c.rot, s: c.s, hp: NODE_TYPES[t].hits, alive: true, idx: -1, pulse: 0, respawnAt: 0,
       };
       G.nodes.push(node);
-      setNodeMatrix(node, 1);
-      if (node.def.r > 0) addStatic({ x: c.x, z: c.z, r: node.def.r * c.s, node });
+      if (node.def.r > 0) addStatic({ x: c.x, z: c.z, r: node.def.r * c.s, h: (node.def.h || 3) * c.s, node });
     });
-    im.instanceMatrix.needsUpdate = true;
     scene.add(im);
+  }
+  const s0 = { x: LOC.wreck.x - Math.cos(LOC.wreck.a) * 12, z: LOC.wreck.z - Math.sin(LOC.wreck.a) * 12 };
+  streamNodes(s0, true);
+}
+const crystalMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.15, metalness: 0.1, emissive: 0x2a7fb0, emissiveIntensity: 0.9 });
+
+// Refill the visible instance slots with the nodes near p.
+export function streamNodes(p, force = false) {
+  if (!force && streamAt && Math.hypot(p.x - streamAt.x, p.z - streamAt.z) < 8) return;
+  streamAt = { x: p.x, z: p.z };
+  const cnt = {}, fcnt = {};
+  for (const t in groups) cnt[t] = fcnt[t] = 0;
+  const R2 = STREAM_R * STREAM_R, N2 = NEAR_R * NEAR_R;
+  for (const n of G.nodes) {
+    const dx = n.x - p.x, dz = n.z - p.z, d2 = dx * dx + dz * dz;
+    if (d2 > R2) { n.idx = -1; continue; }
+    n.far = d2 > N2;
+    n.idx = n.far ? fcnt[n.type]++ : cnt[n.type]++;
+    setNodeMatrix(n, 1, true);
+  }
+  for (const t in groups) {
+    groups[t].count = cnt[t]; groups[t].instanceMatrix.needsUpdate = true;
+    farGroups[t].count = fcnt[t]; farGroups[t].instanceMatrix.needsUpdate = true;
   }
 }
 
-function setNodeMatrix(n, k) {
+function setNodeMatrix(n, k, bulk = false) {
+  if (n.idx < 0) return;
   const s = n.alive ? n.s * k : 0;
   _q.setFromAxisAngle(_up, n.rot);
   _m.compose(_v.set(n.x, n.y, n.z), _q, _s.set(s, s * (2 - k), s));
-  groups[n.type].setMatrixAt(n.idx, _m);
-  groups[n.type].instanceMatrix.needsUpdate = true;
+  const im = (n.far ? farGroups : groups)[n.type];
+  im.setMatrixAt(n.idx, _m);
+  if (!bulk) im.instanceMatrix.needsUpdate = true;
 }
 
 // Find a node the player can hit from (px,pz) facing dir (fx,fz)
@@ -206,6 +275,7 @@ export function harvest(n, tier, toast) {
 
 export function updateNodes(dt) {
   const P = G.player.pos;
+  streamNodes(P);
   for (const n of G.nodes) {
     if (n.pulse > 0) {
       n.pulse -= dt;

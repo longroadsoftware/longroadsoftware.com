@@ -20,7 +20,18 @@ export const G = {
   raid: { active: false, night: 0, queue: [], spawnT: 0 },
   boss: null,
   stats: { kills: 0, deaths: 0, built: 0 },
+  names: { player: 'Traveler', dog1: 'Tippy', dog2: 'Izzy' },
+  slot: null,          // save-slot name (the player's name)
+  quests: {},          // side quests: id -> { s: 'active' | 'done', step }
 };
+
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Fill in the player's and the dogs' names: {P}, {D1}, {D2}.
+export function fmt(text) {
+  if (typeof text !== 'string') return text;
+  return text.replace(/\{P\}/g, esc(G.names.player)).replace(/\{D1\}/g, esc(G.names.dog1)).replace(/\{D2\}/g, esc(G.names.dog2));
+}
+export const escHtml = esc;
 
 export function count(k, n = 1) { G.counters[k] = (G.counters[k] || 0) + n; }
 export function hasRes(cost) { for (const k in cost) if ((G.inv[k] || 0) < cost[k]) return false; return true; }

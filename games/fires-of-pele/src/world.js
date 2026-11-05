@@ -4,7 +4,7 @@ import { G, CFG } from './state.js';
 import { fbm, clamp, lerp, smoothstep, mulberry32, part, merge, MAT, mesh, makeLabel } from './util.js';
 import { addStatic } from './physics.js';
 
-export const WORLD = 320, SEG = 170;
+export const WORLD = 320, SEG = 256;
 const CW = WORLD / SEG;
 export const VOLC = { x: 8, z: -48 };
 export const LOC = {};
@@ -85,60 +85,98 @@ export function buildTerrain(scene) {
     const ix = Math.round((p.getX(i) + WORLD / 2) / CW), iz = Math.round((p.getZ(i) + WORLD / 2) / CW);
     p.setY(i, H[iz * N + ix]);
   }
-  geo = geo.toNonIndexed();
-  geo.computeVertexNormals();
+  geo.computeVertexNormals();   // smooth, shared normals: rolling hills instead of facets
   const pos = geo.attributes.position, nor = geo.attributes.normal;
   const col = new Float32Array(pos.count * 3);
-  const rng = mulberry32(7);
-  const c = new THREE.Color(), tmp = new THREE.Color();
+  const c = new THREE.Color();
   const C = {
-    seabed: new THREE.Color(0x8a7a52), wetsand: new THREE.Color(0xcdb98a), sand: new THREE.Color(0xead9a6),
-    grass: new THREE.Color(0x5e9e3c), grass2: new THREE.Color(0x46852f), jungle: new THREE.Color(0x356f2a),
+    seabed: new THREE.Color(0x8a7a52), wetsand: new THREE.Color(0xc9b383), sand: new THREE.Color(0xecdcab),
+    grass: new THREE.Color(0x3f8a22), grass2: new THREE.Color(0x2f7420), dry: new THREE.Color(0x7a9238), jungle: new THREE.Color(0x245c1c),
     rock: new THREE.Color(0x6e6258), basalt: new THREE.Color(0x3b3330), ash: new THREE.Color(0x2a2220), cliff: new THREE.Color(0x7d7468),
   };
-  for (let i = 0; i < pos.count; i += 3) {
-    const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
-    const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
-    const z = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const ny = nor.getY(i);
     const dv = distVolcano(x, z);
-    if (y < -0.4) c.copy(C.seabed);
-    else if (y < 0.5) c.copy(C.wetsand);
-    else if (y < 1.9) c.copy(C.sand);
+    const n = fbm(x * 0.05, z * 0.05, 3), n2 = fbm(x * 0.21 + 9, z * 0.21, 2);
+    if (y < -0.4) c.copy(C.seabed).lerp(C.wetsand, smoothstep(-3, -0.4, y));
+    else if (y < 1.9) c.copy(C.wetsand).lerp(C.sand, smoothstep(0.2, 0.9, y));
     else {
-      const n = fbm(x * 0.05, z * 0.05, 2);
       c.copy(C.grass).lerp(C.grass2, clamp(n * 1.5 + 0.5, 0, 1));
+      c.lerp(C.dry, clamp(n2 * 1.2, 0, 0.35));
       if (y > 6) c.lerp(C.jungle, clamp((y - 6) / 8, 0, 0.8));
       if (dv < 40) c.lerp(C.rock, smoothstep(40, 26, dv));
       if (dv < 22) c.lerp(C.basalt, smoothstep(22, 13, dv));
-      if (dv < 8) c.copy(C.ash);
-      if (ny < 0.72 && dv >= 22) c.lerp(C.cliff, 0.6);
+      if (dv < 10) c.lerp(C.ash, smoothstep(10, 6, dv));
+      if (dv >= 22) c.lerp(C.cliff, smoothstep(0.8, 0.62, ny) * 0.75);
+      c.lerp(C.sand, smoothstep(2.15, 1.85, y));           // soft sand-to-grass edge
     }
-    const j = 0.94 + rng() * 0.12;
-    tmp.copy(c).multiplyScalar(j);
-    for (let k = 0; k < 3; k++) { col[(i + k) * 3] = tmp.r; col[(i + k) * 3 + 1] = tmp.g; col[(i + k) * 3 + 2] = tmp.b; }
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  const tmat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
+  tmat.onBeforeCompile = (sh) => {
+    // fine ground detail: world-space value noise breaks up the flat vertex colours
+    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = `varying vec3 vWP;
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1,0)), f.x), mix(h21(i + vec2(0,1)), h21(i + vec2(1,1)), f.x), f.y); }
+    ` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float d1 = vn(vWP.xz * 1.7), d2 = vn(vWP.xz * 6.0), d3 = vn(vWP.xz * 0.35);
+      diffuseColor.rgb *= 0.86 + 0.16 * d1 + 0.08 * d2 + 0.06 * (d3 - 0.5);`);
+  };
+  terrain = new THREE.Mesh(geo, tmat);
   terrain.receiveShadow = true;
   terrain.name = 'terrain';
   scene.add(terrain);
   G.terrain = terrain;
+  buildHeightTexture();
+  buildGrass(scene);
   buildWater(scene);
   buildLandmarks(scene);
   return terrain;
 }
 
 // ---------- Water ----------
-export const waterUniforms = { uTime: { value: 0 } };
+export const waterUniforms = { uTime: { value: 0 }, uHeight: { value: null }, uWorld: { value: WORLD }, uSeg: { value: SEG } };
+// The island's height field as a texture, so the water can tell shallow from deep and draw surf.
+function buildHeightTexture() {
+  const N = SEG + 1, data = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) data[i] = Math.round(clamp((H[i] + 6) / 8, 0, 1) * 255);   // -6..2 m
+  const tex = new THREE.DataTexture(data, N, N, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.magFilter = tex.minFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  waterUniforms.uHeight.value = tex;
+}
 function buildWater(scene) {
-  const geo = new THREE.PlaneGeometry(1400, 1400, 140, 140);
-  const mat = new THREE.MeshPhongMaterial({ color: 0x2b9cc4, transparent: true, opacity: 0.82, shininess: 120, specular: 0x99ddff, flatShading: true });
+  const geo = new THREE.PlaneGeometry(1400, 1400, 220, 220);
+  const mat = new THREE.MeshPhongMaterial({ color: 0x1f7fae, transparent: true, opacity: 0.9, shininess: 160, specular: 0xcfefff });
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = waterUniforms.uTime;
-    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-      vec4 wpw = modelMatrix * vec4(position, 1.0);
-      transformed.z += sin(wpw.x * 0.17 + uTime * 1.3) * 0.18 + cos(wpw.z * 0.13 + uTime * 0.9) * 0.18;`);
+    Object.assign(sh.uniforms, waterUniforms);
+    sh.vertexShader = 'uniform float uTime;\nvarying vec3 vWP;\n' + sh.vertexShader
+      .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+        { vec4 w0 = modelMatrix * vec4(position, 1.0);
+          float dx = cos(w0.x * 0.17 + uTime * 1.3) * 0.17 * 0.18 + cos(w0.x * 0.41 - w0.z * 0.23 + uTime * 2.1) * 0.41 * 0.06;
+          float dz = -sin(w0.z * 0.13 + uTime * 0.9) * 0.13 * 0.18 - cos(w0.x * 0.41 - w0.z * 0.23 + uTime * 2.1) * 0.23 * 0.06;
+          objectNormal = normalize(vec3(-dx, dz, 1.0)); }`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec4 wpw = modelMatrix * vec4(position, 1.0);
+        transformed.z += sin(wpw.x * 0.17 + uTime * 1.3) * 0.18 + cos(wpw.z * 0.13 + uTime * 0.9) * 0.18 + sin(wpw.x * 0.41 - wpw.z * 0.23 + uTime * 2.1) * 0.06;
+        vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    sh.fragmentShader = 'uniform float uTime; uniform float uWorld; uniform float uSeg; uniform sampler2D uHeight;\nvarying vec3 vWP;\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 uv = ((vWP.xz + uWorld * 0.5) / uWorld * uSeg + 0.5) / (uSeg + 1.0);
+        float ground = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? -6.0 : texture2D(uHeight, vec2(uv.x, uv.y)).r * 8.0 - 6.0;
+        float depth = max(0.0, vWP.y - ground);
+        vec3 shallow = vec3(0.30, 0.85, 0.82), mid = vec3(0.09, 0.55, 0.70), deep = vec3(0.04, 0.24, 0.42);
+        vec3 wc = mix(shallow, mid, smoothstep(0.0, 1.6, depth));
+        wc = mix(wc, deep, smoothstep(1.6, 6.0, depth));
+        float foamBand = 1.0 - smoothstep(0.0, 0.45 + 0.15 * sin(uTime * 1.7 + vWP.x * 0.3), depth);
+        float ripple = 0.5 + 0.5 * sin(vWP.x * 2.3 + uTime * 2.0) * sin(vWP.z * 2.1 - uTime * 1.6);
+        wc = mix(wc, vec3(0.97), clamp(foamBand * (0.55 + 0.45 * ripple), 0.0, 1.0));
+        diffuseColor.rgb = wc;
+        diffuseColor.a = mix(0.55, 0.93, smoothstep(0.0, 2.5, depth)) + foamBand * 0.3;`)
   };
   const w = new THREE.Mesh(geo, mat);
   w.rotation.x = -Math.PI / 2;
@@ -148,16 +186,102 @@ function buildWater(scene) {
   G.water = w;
 }
 
+// ---------- Grass ----------
+// Thousands of small instanced tufts on the grassy ground, swaying in the wind.
+export const grassUniforms = { uTime: { value: 0 } };
+function buildGrass(scene) {
+  const blades = [];
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI + (k % 2) * 0.3, h = 0.2 + (k % 3) * 0.07, w = 0.035;
+    const lean = 0.06 * ((k % 3) - 1);
+    const g = new THREE.BufferGeometry();
+    const v = new Float32Array([-w, 0, 0, w, 0, 0, lean, h, 0.04]);
+    g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array([0.1, 0.22, 0.06, 0.1, 0.22, 0.06, 0.34, 0.55, 0.17]), 3));
+    g.rotateY(a); g.translate(Math.cos(a * 3) * 0.05, 0, Math.sin(a * 3) * 0.05);
+    blades.push(g);
+  }
+  const geo = merge(blades);
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = grassUniforms.uTime;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vec4 ib = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+      float sway = sin(uTime * 1.8 + ib.x * 0.35 + ib.z * 0.27) * 0.18 + sin(uTime * 3.1 + ib.x * 1.3) * 0.05;
+      transformed.x += sway * position.y; transformed.z += sway * 0.6 * position.y;`)
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n objectNormal = vec3(0.0, 1.0, 0.0);');
+  };
+  const rng = mulberry32(2024);
+  const COUNT = 90000, list = [];
+  for (let t = 0; t < COUNT * 4 && list.length < COUNT; t++) {
+    const x = (rng() - 0.5) * WORLD * 0.72, z = (rng() - 0.5) * WORLD * 0.72;
+    const h = heightAt(x, z);
+    if (h < 2.05 || distVolcano(x, z) < 30) continue;
+    if (fbm(x * 0.09 + 3, z * 0.09, 2) < -0.25) continue;          // leave natural bare patches
+    const e = 0.4, sl = Math.abs(heightAt(x + e, z) - heightAt(x - e, z)) + Math.abs(heightAt(x, z + e) - heightAt(x, z - e));
+    if (sl > 0.5) continue;                                            // not on cliffs
+    list.push([x, h, z, rng() * Math.PI * 2, 0.75 + rng() * 0.6]);
+  }
+  const im = new THREE.InstancedMesh(geo, mat, list.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), pv = new THREE.Vector3();
+  const tint = new THREE.Color();
+  list.forEach(([x, h, z, r, s], i) => {
+    m4.compose(pv.set(x, h - 0.02, z), q.setFromAxisAngle(up, r), sv.set(s, s * (0.8 + (i % 5) * 0.1), s));
+    im.setMatrixAt(i, m4);
+    tint.setHSL(0.24 + fbm(x * 0.04, z * 0.04, 2) * 0.05, 0.55, 0.42 + (i % 7) * 0.02);
+    im.setColorAt(i, tint.multiplyScalar(1.7));
+  });
+  im.instanceMatrix.needsUpdate = true;
+  im.receiveShadow = true; im.castShadow = false;
+  im.frustumCulled = false;
+  scene.add(im);
+  G.grass = im;
+}
+
 // ---------- Sky & lighting ----------
-let hemi, sun, stars, sunMesh, moonMesh, lavaLight, lavaMesh;
+let hemi, sun, stars, sunMesh, moonMesh, lavaLight, lavaMesh, dome;
+const skyUniforms = {
+  uTop: { value: new THREE.Color(0x2f7fd8) }, uHorizon: { value: new THREE.Color(0x9fd8ff) },
+  uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(0xfff0c0) }, uTime: { value: 0 }, uCloud: { value: 1 },
+};
 export function initSky(scene) {
   scene.background = new THREE.Color(0x8fd3ff);
   scene.fog = new THREE.Fog(0x8fd3ff, 70, 280);
+  // gradient sky dome with a sun glow and soft drifting clouds
+  dome = new THREE.Mesh(new THREE.SphereGeometry(800, 32, 16), new THREE.ShaderMaterial({
+    uniforms: skyUniforms, side: THREE.BackSide, depthWrite: false, fog: false,
+    vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 uTop, uHorizon, uSunDir, uSunCol; uniform float uTime, uCloud; varying vec3 vDir;
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1,0)), f.x), mix(h21(i + vec2(0,1)), h21(i + vec2(1,1)), f.x), f.y); }
+      float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ s += a * vn(p); p *= 2.03; a *= 0.5; } return s; }
+      void main(){
+        vec3 d = normalize(vDir);
+        float h = clamp(d.y, -0.2, 1.0);
+        vec3 col = mix(uHorizon, uTop, pow(max(h, 0.0), 0.55));
+        float sd = max(dot(d, normalize(uSunDir)), 0.0);
+        col += uSunCol * (pow(sd, 8.0) * 0.35 + pow(sd, 64.0) * 0.6);
+        if (d.y > 0.02) {
+          vec2 cp = d.xz / (d.y + 0.15) * 1.6 + vec2(uTime * 0.012, uTime * 0.006);
+          float c = smoothstep(0.52, 0.78, fbm(cp));
+          vec3 cloudCol = mix(uHorizon * 1.05, vec3(1.0), 0.6) * (0.75 + 0.35 * sd) * uCloud + uSunCol * pow(sd, 6.0) * 0.25;
+          col = mix(col, cloudCol, c * smoothstep(0.02, 0.25, d.y) * 0.85);
+        }
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }));
+  dome.renderOrder = -1;
+  scene.add(dome);
   hemi = new THREE.HemisphereLight(0xcfeaff, 0x5a7040, 0.8);
   scene.add(hemi);
   sun = new THREE.DirectionalLight(0xfff2dd, 1.6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.radius = 3;
   const sc = sun.shadow.camera;
   sc.left = -55; sc.right = 55; sc.top = 55; sc.bottom = -55; sc.near = 1; sc.far = 320;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
@@ -177,7 +301,7 @@ export function initSky(scene) {
   scene.add(sunMesh, moonMesh);
 }
 
-const SKY_DAY = new THREE.Color(0x8fd3ff), SKY_NIGHT = new THREE.Color(0x0a1230), SKY_SET = new THREE.Color(0xff9a5c);
+const SKY_DAY = new THREE.Color(0xa8dcff), SKY_NIGHT = new THREE.Color(0x0a1230), SKY_SET = new THREE.Color(0xff9a5c), SKY_TOP = new THREE.Color(0x2c78d4);
 const _c = new THREE.Color();
 export function timeInfo() {
   const t = G.cycle, df = CFG.DAY_FRAC;
@@ -205,6 +329,14 @@ export function updateSky(dt) {
   _c.copy(SKY_NIGHT).lerp(SKY_DAY, L).lerp(SKY_SET, sunset * 0.55 * (ti.isNight ? 0 : 1));
   G.scene.background.copy(_c);
   G.scene.fog.color.copy(_c);
+  skyUniforms.uHorizon.value.copy(_c);
+  skyUniforms.uTop.value.copy(SKY_NIGHT).lerp(SKY_TOP, L).lerp(SKY_SET, sunset * 0.2);
+  skyUniforms.uSunDir.value.set(Math.cos(az), elev, 0.35);
+  skyUniforms.uSunCol.value.setHex(ti.isNight ? 0x9fb4ff : 0xfff0c0).lerp(SKY_SET, sunset).multiplyScalar(ti.isNight ? 0.25 : 1);
+  skyUniforms.uCloud.value = lerp(0.18, 1, L);
+  skyUniforms.uTime.value = G.t;
+  dome.position.copy(P);
+  grassUniforms.uTime.value = G.t;
   G.scene.fog.far = lerp(170, 280, L);
   if (!ti.isNight) {
     sun.color.setHex(0xfff2dd).lerp(SKY_SET, sunset * 0.6);

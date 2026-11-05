@@ -1,7 +1,7 @@
 // Harvestable resource nodes rendered with InstancedMesh.
 import * as THREE from 'three';
 import { G, count } from './state.js';
-import { part, merge, MAT, mulberry32 } from './util.js';
+import { part, merge, MAT, mulberry32, lumpy } from './util.js';
 import { heightAt, distVolcano, LOC, WORLD } from './world.js';
 import { addStatic } from './physics.js';
 import { burst, sfx } from './fx.js';
@@ -15,6 +15,23 @@ export const NODE_TYPES = {
   obsidian: { res: 'obsidian', per: 1, hits: 7, r: 0.85, tier: 2, sound: 'stone', color: 0x5a3a8a, label: 'Obsidian' },
 };
 
+function leafGeo(len = 2.6, w = 0.62, droop = 0.9) {
+  // a frond: a thin strip that tapers and bends down along its length
+  const g = new THREE.BoxGeometry(w, 0.035, len, 2, 1, 10);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const t = (p.getZ(i) + len / 2) / len;            // 0 at the trunk, 1 at the tip
+    const taper = Math.sin(Math.PI * Math.min(1, t * 0.95 + 0.05)) * 0.9 + 0.1;
+    p.setX(i, p.getX(i) * taper);
+    p.setY(i, p.getY(i) - droop * t * t * len * 0.45 + Math.abs(p.getX(i)) * 0.25);
+  }
+  g.translate(0, 0, len / 2);
+  g.computeVertexNormals();
+  return g;
+}
+const blob = (r, seed, amt = 0.22) => lumpy(new THREE.SphereGeometry(r, 14, 10), amt, 1.2 / r, seed);
+const stone = (r, seed, amt = 0.16) => lumpy(new THREE.DodecahedronGeometry(r, 1), amt, 1.6 / r, seed);
+
 function geoFor(type) {
   const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
   if (type === 'palm') {
@@ -22,40 +39,45 @@ function geoFor(type) {
     let x = 0;
     for (let i = 0; i < 5; i++) {
       const nx = 0.09 * Math.pow(i + 1, 1.5);
-      ps.push(part(new THREE.CylinderGeometry(0.17 - i * 0.012, 0.24 - i * 0.012, 1.08, 6), i % 2 ? 0x8a6a44 : 0x7a5a38, { pos: [(x + nx) / 2, i + 0.5, 0], rot: [0, 0, -(nx - x) * 0.9] }));
+      ps.push(part(new THREE.CylinderGeometry(0.17 - i * 0.012, 0.22 - i * 0.012, 1.08, 10), i % 2 ? 0x8a6a44 : 0x7a5a38, { pos: [(x + nx) / 2, i + 0.5, 0], rot: [0, 0, -(nx - x) * 0.9] }));
+      ps.push(part(new THREE.TorusGeometry(0.2 - i * 0.012, 0.025, 4, 10), 0x5e4630, { pos: [(x + nx) / 2, i + 1.0, 0], rot: [Math.PI / 2, 0, 0] }));
       x = nx;
     }
     const top = [x, 5.05, 0];
-    for (let k = 0; k < 7; k++) {
-      const a = (k / 7) * Math.PI * 2;
-      ps.push(part(B(0.55, 0.05, 2.5).translate(0, 0, 1.2), k % 2 ? 0x3f9a3a : 0x52ad3f, { pos: top, rot: [0.45, a, 0, 'YXZ'] }));
+    for (let k = 0; k < 9; k++) {
+      const a = (k / 9) * Math.PI * 2 + (k % 2) * 0.2;
+      ps.push(part(leafGeo(2.4 + (k % 3) * 0.3, 0.6, 0.8 + (k % 2) * 0.3), k % 2 ? 0x3f9a3a : 0x52ad3f, { pos: top, rot: [-0.25 + (k % 3) * 0.12, a, 0, 'YXZ'] }));
     }
-    for (let k = 0; k < 3; k++) ps.push(part(new THREE.IcosahedronGeometry(0.17, 0), 0x6a4a20, { pos: [x + Math.cos(k * 2) * 0.25, 4.8, Math.sin(k * 2) * 0.25] }));
+    for (let k = 0; k < 4; k++) ps.push(part(new THREE.SphereGeometry(0.16, 10, 8), 0x6a4a20, { pos: [x + Math.cos(k * 1.6) * 0.24, 4.82, Math.sin(k * 1.6) * 0.24] }));
     return merge(ps);
   }
   if (type === 'tree') return merge([
-    part(new THREE.CylinderGeometry(0.26, 0.42, 3.4, 6), 0x5e4028, { pos: [0, 1.7, 0] }),
-    part(new THREE.IcosahedronGeometry(2.1, 0), 0x2f7a2a, { pos: [0, 4.3, 0] }),
-    part(new THREE.IcosahedronGeometry(1.6, 0), 0x3b8a30, { pos: [0.7, 5.4, 0.3] }),
-    part(new THREE.IcosahedronGeometry(1.4, 0), 0x2a6e26, { pos: [-0.8, 5.0, -0.4] }),
+    part(new THREE.CylinderGeometry(0.24, 0.45, 3.4, 10), 0x5e4028, { pos: [0, 1.7, 0] }),
+    part(new THREE.CylinderGeometry(0.08, 0.14, 1.6, 6), 0x5e4028, { pos: [0.55, 3.6, 0.1], rot: [0, 0, -0.7] }),
+    part(new THREE.CylinderGeometry(0.08, 0.14, 1.5, 6), 0x5e4028, { pos: [-0.5, 3.5, -0.2], rot: [0.2, 0, 0.75] }),
+    part(blob(2.0, 1), 0x2f7a2a, { pos: [0, 4.5, 0], scale: [1, 0.8, 1] }),
+    part(blob(1.55, 2), 0x3b8a30, { pos: [0.95, 5.1, 0.4], scale: [1, 0.85, 1] }),
+    part(blob(1.4, 3), 0x2a6e26, { pos: [-1.0, 4.9, -0.5], scale: [1, 0.85, 1] }),
+    part(blob(1.25, 4), 0x46963a, { pos: [0.1, 5.8, -0.2], scale: [1, 0.8, 1] }),
   ]);
   if (type === 'rock') return merge([
-    part(new THREE.DodecahedronGeometry(1.0, 0), 0x8d8a84, { pos: [0, 0.45, 0], scale: [1.35, 0.85, 1.1] }),
-    part(new THREE.DodecahedronGeometry(0.5, 0), 0x7a7772, { pos: [0.9, 0.2, 0.5] }),
+    part(stone(1.0, 5), 0x8d8a84, { pos: [0, 0.45, 0], scale: [1.35, 0.85, 1.1] }),
+    part(stone(0.5, 6), 0x7a7772, { pos: [0.9, 0.2, 0.5] }),
+    part(blob(0.62, 9, 0.3), 0x5f7f3a, { pos: [-0.25, 0.92, -0.2], scale: [1.3, 0.25, 1.1] }),
   ]);
   if (type === 'flax') {
     const ps = [];
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * Math.PI * 2;
-      ps.push(part(new THREE.ConeGeometry(0.08, 1.6, 4), k % 2 ? 0x9bb54a : 0x7f9f3a, { pos: [Math.cos(a) * 0.2, 0.75, Math.sin(a) * 0.2], rot: [Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3] }));
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      ps.push(part(leafGeo(1.5 + (k % 3) * 0.2, 0.12, 0.3), k % 2 ? 0x9bb54a : 0x7f9f3a, { pos: [Math.cos(a) * 0.12, 0.05, Math.sin(a) * 0.12], rot: [-1.2 + (k % 3) * 0.12, a, 0, 'YXZ'] }));
     }
     return merge(ps);
   }
   if (type === 'berry') {
-    const ps = [part(new THREE.IcosahedronGeometry(0.85, 0), 0x2f6e2f, { pos: [0, 0.7, 0], scale: [1, 0.85, 1] })];
-    for (let k = 0; k < 8; k++) {
-      const a = k * 2.4, y = 0.5 + (k % 3) * 0.25;
-      ps.push(part(new THREE.IcosahedronGeometry(0.12, 0), 0xd02a3a, { pos: [Math.cos(a) * 0.75, y, Math.sin(a) * 0.75] }));
+    const ps = [part(blob(0.85, 7, 0.28), 0x2f6e2f, { pos: [0, 0.7, 0], scale: [1, 0.85, 1] })];
+    for (let k = 0; k < 12; k++) {
+      const a = k * 2.4, y = 0.45 + (k % 4) * 0.22;
+      ps.push(part(new THREE.SphereGeometry(0.1, 8, 6), 0xd02a3a, { pos: [Math.cos(a) * 0.8, y, Math.sin(a) * 0.8] }));
     }
     return merge(ps);
   }

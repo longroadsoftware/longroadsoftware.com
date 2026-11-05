@@ -87,10 +87,37 @@ export function merge(parts) {
 }
 
 export const MAT = {
-  std: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
-  shiny: new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 90, specular: 0x8866cc }),
+  std: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0 }),
+  shiny: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.15, emissive: 0x1a0d2a }),
   glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
 };
+// Organic look: push each vertex along its direction from the centre by a smooth noise value.
+// Keyed by the vertex position, so vertices shared by two faces move together (no cracks).
+export function lumpy(geo, amount = 0.18, freq = 1.7, seed = 0) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const n = noise2(x * freq + seed * 7.3 + z * 0.61, y * freq - seed * 3.1 + z * 0.37);
+    const k = 1 + n * amount;
+    p.setXYZ(i, x * k, y * k, z * k);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+// A rounded box: a capsule squashed to the given width / height / depth.
+export function softBox(w, h, d, seg = 10) {
+  const r = Math.min(w, d) / 2;
+  const g = new THREE.CapsuleGeometry(r, Math.max(0.001, h - 2 * r), 4, seg);
+  g.scale(w / (2 * r), 1, d / (2 * r));
+  return g;
+}
+// A limb / body segment lying along Z.
+export function capsuleZ(r, len, sx = 1, sy = 1, seg = 8) {
+  const g = new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 4, seg);
+  g.rotateX(Math.PI / 2);
+  g.scale(sx, sy, 1);
+  return g;
+}
 export function mesh(geo, mat = MAT.std, shadow = true) {
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = shadow; m.receiveShadow = true;

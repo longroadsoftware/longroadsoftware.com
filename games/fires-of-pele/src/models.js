@@ -1,6 +1,6 @@
 // Low-poly character, animal and weapon models with simple limb animation.
 import * as THREE from 'three';
-import { part, merge, mesh, MAT } from './util.js';
+import { part, merge, mesh, MAT, softBox, capsuleZ } from './util.js';
 
 const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 
@@ -39,7 +39,8 @@ export function makeWeapon(kind) {
   return m;
 }
 
-// Humanoid: faces +Z. Returns limb pivots for animation.
+// Humanoid: faces +Z. Returns limb pivots for animation. Rounded shapes (capsules, spheres).
+const S = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
 export function makeHumanoid(o = {}) {
   const skin = o.skin ?? 0xc89a72, top = o.top ?? skin, bottom = o.bottom ?? 0x6b4a2e, hair = o.hair ?? 0x3a2a1a;
   const bulk = o.bulk ?? 1;
@@ -48,39 +49,57 @@ export function makeHumanoid(o = {}) {
   root.scale.setScalar(o.scale ?? 1);
   const hips = new THREE.Group(); hips.position.y = 0.95; root.add(hips);
   const torsoParts = [
-    part(B(0.62 * bulk, 0.72, 0.34 * bulk), top, { pos: [0, 0.42, 0] }),
-    part(B(0.64 * bulk, 0.34, 0.38 * bulk), bottom, { pos: [0, 0.02, 0] }),
+    part(softBox(0.56 * bulk, 0.74, 0.32 * bulk), top, { pos: [0, 0.44, 0] }),               // chest
+    part(S(0.13, 12, 8), top, { pos: [0.27 * bulk, 0.7, 0], scale: [1, 0.8, 1] }),              // shoulders
+    part(S(0.13, 12, 8), top, { pos: [-0.27 * bulk, 0.7, 0], scale: [1, 0.8, 1] }),
+    part(softBox(0.6 * bulk, 0.36, 0.36 * bulk), bottom, { pos: [0, 0.03, 0] }),               // wrap / skirt
+    part(new THREE.CylinderGeometry(0.09, 0.1, 0.16, 12), skin, { pos: [0, 0.86, 0] }),         // neck
   ];
-  if (o.necklace) torsoParts.push(part(B(0.5 * bulk, 0.08, 0.38 * bulk), o.necklace, { pos: [0, 0.72, 0.02] }));
-  if (o.paint) torsoParts.push(part(B(0.64 * bulk, 0.08, 0.36 * bulk), o.paint, { pos: [0, 0.45, 0.01] }));
-  if (o.glow) torsoParts.push(part(B(0.08, 0.5, 0.36 * bulk + 0.02), o.glow, { pos: [0.12, 0.42, 0] }), part(B(0.3, 0.06, 0.36 * bulk + 0.02), o.glow, { pos: [-0.05, 0.3, 0] }));
+  if (o.necklace) torsoParts.push(part(new THREE.TorusGeometry(0.17 * bulk, 0.035, 6, 16), o.necklace, { pos: [0, 0.78, 0.02], rot: [Math.PI / 2 - 0.25, 0, 0], scale: [1, 0.7, 1] }));
+  if (o.paint) torsoParts.push(part(new THREE.CylinderGeometry(0.285 * bulk, 0.285 * bulk, 0.08, 16), o.paint, { pos: [0, 0.45, 0], scale: [1, 1, 0.6] }));
+  if (o.glow) torsoParts.push(part(new THREE.BoxGeometry(0.08, 0.5, 0.34 * bulk + 0.02), o.glow, { pos: [0.12, 0.42, 0] }), part(new THREE.BoxGeometry(0.3, 0.06, 0.34 * bulk + 0.02), o.glow, { pos: [-0.05, 0.3, 0] }));
   const torso = mesh(merge(torsoParts)); hips.add(torso);
   const head = new THREE.Group(); head.position.y = 0.98; hips.add(head);
   const hp = [
-    part(B(0.38, 0.4, 0.38), skin, { pos: [0, 0.2, 0] }),
-    part(B(0.06, 0.06, 0.02), 0x111111, { pos: [0.09, 0.24, 0.2] }),
-    part(B(0.06, 0.06, 0.02), 0x111111, { pos: [-0.09, 0.24, 0.2] }),
+    part(S(0.205), skin, { pos: [0, 0.21, 0], scale: [0.95, 1.08, 1] }),
+    part(S(0.035, 8, 6), 0xffffff, { pos: [0.08, 0.25, 0.175] }),
+    part(S(0.035, 8, 6), 0xffffff, { pos: [-0.08, 0.25, 0.175] }),
+    part(S(0.022, 8, 6), 0x1a1208, { pos: [0.08, 0.25, 0.2] }),
+    part(S(0.022, 8, 6), 0x1a1208, { pos: [-0.08, 0.25, 0.2] }),
+    part(new THREE.ConeGeometry(0.035, 0.09, 8), skin, { pos: [0, 0.19, 0.21], rot: [Math.PI / 2, 0, 0] }),   // nose
+    part(S(0.045, 8, 6), skin, { pos: [0.2, 0.2, 0], scale: [0.5, 1, 0.8] }),                               // ears
+    part(S(0.045, 8, 6), skin, { pos: [-0.2, 0.2, 0], scale: [0.5, 1, 0.8] }),
   ];
-  if (hair !== null) hp.push(part(B(0.42, 0.14, 0.42), hair, { pos: [0, 0.42, -0.01] }), part(B(0.42, 0.25, 0.1), hair, { pos: [0, 0.3, -0.17] }));
-  if (o.cap) hp.push(part(B(0.44, 0.12, 0.44), o.cap, { pos: [0, 0.44, 0] }), part(B(0.36, 0.04, 0.22), o.cap, { pos: [0, 0.39, 0.3] }));
-  if (o.beard) hp.push(part(B(0.34, 0.18, 0.08), o.beard, { pos: [0, 0.06, 0.2] }));
-  if (o.mask) {
-    hp.push(part(B(0.44, 0.48, 0.06), o.mask, { pos: [0, 0.2, 0.22] }));
-    hp.push(part(B(0.1, 0.06, 0.02), o.maskEye ?? 0xff3020, { pos: [0.1, 0.27, 0.26] }), part(B(0.1, 0.06, 0.02), o.maskEye ?? 0xff3020, { pos: [-0.1, 0.27, 0.26] }));
-    hp.push(part(B(0.3, 0.05, 0.02), 0x8a1a10, { pos: [0, 0.08, 0.26] }));
+  if (hair !== null) {
+    hp.push(part(new THREE.SphereGeometry(0.218, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), hair, { pos: [0, 0.25, -0.01], rot: [-0.25, 0, 0] }));
+    hp.push(part(S(0.2, 14, 10), hair, { pos: [0, 0.2, -0.06], scale: [1.02, 1, 0.8] }));
   }
-  if (o.headdress) for (let i = -2; i <= 2; i++) hp.push(part(B(0.08, 0.5, 0.04), i % 2 ? o.headdress : 0xffd040, { pos: [i * 0.1, 0.6, -0.1], rot: [0, 0, i * 0.18] }));
-  head.add(mesh(merge(hp), o.glow ? MAT.std : MAT.std));
-  const mkLimb = (w, h, color, color2) => {
+  if (o.cap) hp.push(part(new THREE.SphereGeometry(0.225, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), o.cap, { pos: [0, 0.27, 0] }), part(new THREE.CylinderGeometry(0.17, 0.17, 0.025, 16, 1, false, -Math.PI / 2, Math.PI), o.cap, { pos: [0, 0.29, 0.13], scale: [1.1, 1, 1.2] }));
+  if (o.beard) hp.push(part(S(0.16, 12, 8), o.beard, { pos: [0, 0.08, 0.09], scale: [1, 0.85, 0.75] }));
+  if (o.mask) {
+    hp.push(part(softBox(0.42, 0.48, 0.07), o.mask, { pos: [0, 0.21, 0.2] }));
+    hp.push(part(S(0.05, 8, 6), o.maskEye ?? 0xff3020, { pos: [0.1, 0.27, 0.24], scale: [1.2, 0.7, 0.5] }), part(S(0.05, 8, 6), o.maskEye ?? 0xff3020, { pos: [-0.1, 0.27, 0.24], scale: [1.2, 0.7, 0.5] }));
+    hp.push(part(softBox(0.28, 0.06, 0.03), 0x8a1a10, { pos: [0, 0.09, 0.245] }));
+  }
+  if (o.headdress) for (let i = -2; i <= 2; i++) hp.push(part(capsuleZ(0.04, 0.5).rotateX(-Math.PI / 2), i % 2 ? o.headdress : 0xffd040, { pos: [i * 0.1, 0.62, -0.1], rot: [0, 0, i * 0.18], scale: [1, 1, 0.4] }));
+  head.add(mesh(merge(hp), MAT.std));
+  // limb: upper + lower capsule, then a hand or foot
+  const mkLimb = (w, h, color, color2, foot) => {
     const pv = new THREE.Group();
-    const geo = merge([part(B(w, h, w), color, { pos: [0, -h / 2, 0] }), part(B(w * 1.05, h * 0.2, w * 1.05), color2 ?? color, { pos: [0, -h * 0.92, 0] })]);
-    pv.add(mesh(geo));
+    const r = w / 2;
+    const ps = [
+      part(new THREE.CapsuleGeometry(r * 1.05, h * 0.5 - r, 4, 10), color, { pos: [0, -h * 0.25, 0] }),
+      part(new THREE.CapsuleGeometry(r * 0.9, h * 0.5 - r, 4, 10), color, { pos: [0, -h * 0.68, 0] }),
+    ];
+    if (foot) ps.push(part(capsuleZ(r * 0.85, w * 1.7, 1.15, 0.7), color2 ?? color, { pos: [0, -h * 0.95, w * 0.3] }));
+    else ps.push(part(S(r * 1.05, 10, 8), color2 ?? color, { pos: [0, -h * 0.94, 0], scale: [0.9, 1.1, 0.75] }));
+    pv.add(mesh(merge(ps)));
     return pv;
   };
-  const armL = mkLimb(0.17 * bulk, 0.66, skin, skin); armL.position.set(0.41 * bulk, 0.74, 0); hips.add(armL);
-  const armR = mkLimb(0.17 * bulk, 0.66, skin, skin); armR.position.set(-0.41 * bulk, 0.74, 0); hips.add(armR);
-  const legL = mkLimb(0.21 * bulk, 0.92, o.legs ?? skin, o.feet ?? 0x3a2a1a); legL.position.set(0.16 * bulk, -0.05, 0); hips.add(legL);
-  const legR = mkLimb(0.21 * bulk, 0.92, o.legs ?? skin, o.feet ?? 0x3a2a1a); legR.position.set(-0.16 * bulk, -0.05, 0); hips.add(legR);
+  const armL = mkLimb(0.15 * bulk, 0.66, skin, skin); armL.position.set(0.37 * bulk, 0.72, 0); hips.add(armL);
+  const armR = mkLimb(0.15 * bulk, 0.66, skin, skin); armR.position.set(-0.37 * bulk, 0.72, 0); hips.add(armR);
+  const legL = mkLimb(0.2 * bulk, 0.92, o.legs ?? skin, o.feet ?? 0x3a2a1a, true); legL.position.set(0.14 * bulk, -0.05, 0); hips.add(legL);
+  const legR = mkLimb(0.2 * bulk, 0.92, o.legs ?? skin, o.feet ?? 0x3a2a1a, true); legR.position.set(-0.14 * bulk, -0.05, 0); hips.add(legR);
   const hand = new THREE.Group(); hand.position.y = -0.62; armR.add(hand);
   const handL = new THREE.Group(); handL.position.y = -0.62; armL.add(handL);
   return { g, root, hips, torso, head, armL, armR, legL, legR, hand, handL, weapon: null };
@@ -110,7 +129,7 @@ export function animHumanoid(h, phase, move, attack = -1, throwing = -1) {
   }
 }
 
-// Quadruped: dog / wolf / boar. Faces +Z.
+// Quadruped: dog / wolf / boar. Faces +Z. Rounded body, head and legs.
 export function makeQuad(kind, color = 0xd9b48f, accent = 0xffffff) {
   const g = new THREE.Group();
   const root = new THREE.Group(); g.add(root);
@@ -119,34 +138,45 @@ export function makeQuad(kind, color = 0xd9b48f, accent = 0xffffff) {
   if (kind === 'boar') { bw = 0.62; bh = 0.6; bl = 1.15; legH = 0.36; hs = 0.46; sc = 1.1; }
   root.scale.setScalar(sc);
   const bodyY = legH + bh / 2;
-  const bp = [part(B(bw, bh, bl), color, { pos: [0, bodyY, 0] })];
-  if (kind === 'dog') bp.push(part(B(bw * 1.02, bh * 0.5, bl * 0.4), accent, { pos: [0, bodyY - 0.1, 0.25] }));
-  if (kind === 'boar') bp.push(part(B(0.1, 0.25, bl * 0.8), 0x2a1a10, { pos: [0, bodyY + bh / 2 + 0.08, 0] }));
-  if (kind === 'wolf') bp.push(part(B(bw * 1.1, bh * 1.1, 0.35), accent, { pos: [0, bodyY + 0.04, bl / 2 - 0.15] }));
+  const r = Math.min(bw, bh) / 2;
+  const bp = [
+    part(capsuleZ(r, bl, bw / (2 * r), bh / (2 * r), 14), color, { pos: [0, bodyY, 0] }),
+    part(S(r * 1.05, 14, 10), color, { pos: [0, bodyY + 0.03, bl * 0.3], scale: [bw / (2 * r), bh / (2 * r) * 1.05, 1] }), // chest
+  ];
+  if (kind === 'dog') bp.push(part(capsuleZ(r * 0.7, bl * 0.55, bw / (2 * r) * 0.95, 0.75), accent, { pos: [0, bodyY - bh * 0.22, 0.12] }));
+  if (kind === 'boar') bp.push(part(capsuleZ(0.06, bl * 0.8, 1, 2.2), 0x2a1a10, { pos: [0, bodyY + bh / 2 + 0.02, 0] }));
+  if (kind === 'wolf') bp.push(part(S(bw * 0.62, 14, 10), accent, { pos: [0, bodyY + 0.05, bl / 2 - 0.2], scale: [1.05, 1.0, 0.7] }));
   root.add(mesh(merge(bp)));
   const head = new THREE.Group(); head.position.set(0, bodyY + 0.18, bl / 2 + 0.1); root.add(head);
-  const hp = [part(B(hs, hs, hs), color, { pos: [0, 0, hs / 2] })];
-  hp.push(part(B(0.05, 0.05, 0.02), 0x111111, { pos: [0.1, 0.07, hs + 0.01] }), part(B(0.05, 0.05, 0.02), 0x111111, { pos: [-0.1, 0.07, hs + 0.01] }));
+  const hp = [part(S(hs * 0.55, 14, 10), color, { pos: [0, 0, hs * 0.45], scale: [1, 0.95, 1.05] })];
+  hp.push(part(S(0.035, 8, 6), 0x111111, { pos: [0.1, 0.08, hs * 0.86] }), part(S(0.035, 8, 6), 0x111111, { pos: [-0.1, 0.08, hs * 0.86] }));
   if (kind === 'boar') {
-    hp.push(part(B(0.26, 0.22, 0.2), 0xb08070, { pos: [0, -0.06, hs + 0.08] }));
-    hp.push(part(new THREE.ConeGeometry(0.03, 0.18, 4), 0xf0eadc, { pos: [0.12, 0.02, hs + 0.08] }), part(new THREE.ConeGeometry(0.03, 0.18, 4), 0xf0eadc, { pos: [-0.12, 0.02, hs + 0.08] }));
-    hp.push(part(B(0.08, 0.14, 0.06), color, { pos: [0.14, hs / 2 + 0.05, 0.1] }), part(B(0.08, 0.14, 0.06), color, { pos: [-0.14, hs / 2 + 0.05, 0.1] }));
+    hp.push(part(new THREE.CylinderGeometry(0.13, 0.15, 0.24, 14), 0xb08070, { pos: [0, -0.06, hs + 0.1], rot: [Math.PI / 2, 0, 0] }));
+    hp.push(part(S(0.025, 6, 4), 0x2a1a10, { pos: [0.05, -0.05, hs + 0.22] }), part(S(0.025, 6, 4), 0x2a1a10, { pos: [-0.05, -0.05, hs + 0.22] }));
+    hp.push(part(new THREE.ConeGeometry(0.03, 0.2, 8), 0xf0eadc, { pos: [0.13, 0.0, hs + 0.08], rot: [-0.5, 0, -0.3] }), part(new THREE.ConeGeometry(0.03, 0.2, 8), 0xf0eadc, { pos: [-0.13, 0.0, hs + 0.08], rot: [-0.5, 0, 0.3] }));
+    hp.push(part(new THREE.ConeGeometry(0.07, 0.16, 8), color, { pos: [0.14, hs / 2 + 0.06, 0.12], rot: [0, 0, -0.4] }), part(new THREE.ConeGeometry(0.07, 0.16, 8), color, { pos: [-0.14, hs / 2 + 0.06, 0.12], rot: [0, 0, 0.4] }));
   } else {
-    hp.push(part(B(0.2, 0.18, 0.24), kind === 'dog' ? accent : color, { pos: [0, -0.06, hs + 0.1] }));
-    hp.push(part(B(0.06, 0.05, 0.04), 0x111111, { pos: [0, -0.01, hs + 0.22] }));
-    const earH = kind === 'wolf' ? 0.24 : 0.16;
-    hp.push(part(new THREE.ConeGeometry(0.07, earH, 4), color, { pos: [0.12, hs / 2 + earH / 2, 0.12], rot: [0, 0, kind === 'dog' ? -0.5 : -0.1] }));
-    hp.push(part(new THREE.ConeGeometry(0.07, earH, 4), color, { pos: [-0.12, hs / 2 + earH / 2, 0.12], rot: [0, 0, kind === 'dog' ? 0.5 : 0.1] }));
+    hp.push(part(capsuleZ(0.1, 0.3, 1, 0.85, 10), kind === 'dog' ? accent : color, { pos: [0, -0.06, hs + 0.1] }));
+    hp.push(part(S(0.045, 8, 6), 0x111111, { pos: [0, -0.02, hs + 0.25] }));
+    const earH = kind === 'wolf' ? 0.24 : 0.18;
+    const flop = kind === 'dog' ? 0.9 : 0.1;
+    hp.push(part(new THREE.ConeGeometry(0.075, earH, 10), color, { pos: [0.12, hs / 2 + earH / 2 - (kind === 'dog' ? 0.06 : 0), 0.08], rot: [0, 0, -flop * 0.6], scale: [1, 1, 0.5] }));
+    hp.push(part(new THREE.ConeGeometry(0.075, earH, 10), color, { pos: [-0.12, hs / 2 + earH / 2 - (kind === 'dog' ? 0.06 : 0), 0.08], rot: [0, 0, flop * 0.6], scale: [1, 1, 0.5] }));
   }
   head.add(mesh(merge(hp)));
   const legs = [];
-  for (const [x, z] of [[bw / 2 - 0.08, bl / 2 - 0.12], [-bw / 2 + 0.08, bl / 2 - 0.12], [bw / 2 - 0.08, -bl / 2 + 0.12], [-bw / 2 + 0.08, -bl / 2 + 0.12]]) {
+  for (const [x, z] of [[bw / 2 - 0.09, bl / 2 - 0.14], [-bw / 2 + 0.09, bl / 2 - 0.14], [bw / 2 - 0.09, -bl / 2 + 0.14], [-bw / 2 + 0.09, -bl / 2 + 0.14]]) {
     const pv = new THREE.Group(); pv.position.set(x, legH, z);
-    pv.add(mesh(merge([part(B(0.13, legH, 0.13), color, { pos: [0, -legH / 2, 0] })])));
+    pv.add(mesh(merge([
+      part(new THREE.CapsuleGeometry(0.075, legH * 0.55, 4, 8), color, { pos: [0, -legH * 0.38, 0] }),
+      part(new THREE.CapsuleGeometry(0.055, legH * 0.35, 4, 8), color, { pos: [0, -legH * 0.8, 0.02] }),
+      part(S(0.07, 8, 6), kind === 'dog' ? accent : color, { pos: [0, -legH + 0.03, 0.04], scale: [1, 0.6, 1.3] }),
+    ])));
     root.add(pv); legs.push(pv);
   }
   const tail = new THREE.Group(); tail.position.set(0, bodyY + 0.12, -bl / 2); root.add(tail);
-  tail.add(mesh(merge([part(B(0.08, 0.08, kind === 'boar' ? 0.15 : 0.45), kind === 'wolf' ? accent : color, { pos: [0, 0, -0.2], rot: [0.5, 0, 0] })])));
+  const tl = kind === 'boar' ? 0.18 : 0.5;
+  tail.add(mesh(merge([part(capsuleZ(kind === 'wolf' ? 0.08 : 0.05, tl, 1, 1, 8), kind === 'wolf' ? accent : color, { pos: [0, 0.05, -tl / 2], rot: [0.5, 0, 0] })])));
   return { g, root, head, legs, tail, kind };
 }
 

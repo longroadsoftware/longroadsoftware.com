@@ -15,19 +15,34 @@ import { toast, updateHUD, setPrompt, drawMinimap, renderCraft, showScreen, adva
 import { saveGame, loadGame, hasSave, clearSave } from './save.js';
 import { makeLabel, part, merge, mesh } from './util.js';
 import * as THREE_NS from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 1200);
 G.scene = scene; G.camera = camera; G.renderer = renderer;
 
+// Post-processing: a gentle bloom so lava, fires, torches and the sun glow; OutputPass applies tone mapping.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.55, 0.88);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+G.composer = composer;
+
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 });
 
@@ -279,7 +294,15 @@ function frame() {
   if (hudT <= 0 && G.mode !== 'title') { hudT = 0.1; updateHUD(); }
   mapT -= dt;
   if (mapT <= 0 && G.mode !== 'title') { mapT = 0.15; drawMinimap(); }
-  renderer.render(scene, camera);
+  // Quality guard: if the first 6 s of play run below ~30 fps, drop bloom and render at 1x pixels.
+  if (sim && !G.lowQ && !navigator.webdriver) {
+    G._qT = (G._qT || 0) + timer.getDelta(); G._qN = (G._qN || 0) + 1;
+    if (G._qT > 6) {
+      if (G._qN / G._qT < 30) { G.lowQ = true; renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); }
+      else G.lowQ = 'ok';
+    }
+  }
+  if (G.lowQ === true) renderer.render(scene, camera); else composer.render();
   endFrame();
 }
 document.body.dataset.mode = 'title';

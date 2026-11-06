@@ -1,6 +1,6 @@
 // Fires of Pele — main bootstrap, game loop, interaction and mode handling.
 import * as THREE from 'three';
-import { G, CFG, count } from './state.js';
+import { G, CFG, count, DAY_LENGTHS } from './state.js';
 import { buildTerrain, initSky, updateSky, heightAt, LOC, updateWorld, refreshGrass } from './world.js';
 import { initFX, updateFX, initAudio, sfx, burst } from './fx.js';
 import { generateNodes, updateNodes, streamNodes } from './resources.js';
@@ -124,6 +124,11 @@ $('btnHelpBack').onclick = () => { showScreen(G.started ? 'pause' : 'title'); };
 $('btnResume').onclick = () => { setMode('play'); };
 $('btnSave').onclick = () => { if (saveGame()) { toast(`Saved ${G.names.player}'s game.`, 'good'); $('lastsave').textContent = 'Last saved ' + new Date().toLocaleTimeString() + '.'; } };
 $('btnPauseHelp').onclick = () => showScreen('help');
+{ // day length choice (pause menu); takes effect at once, keeps the current time of day
+  const sel = $('dayLength');
+  sel.value = Object.keys(DAY_LENGTHS).find((k) => DAY_LENGTHS[k] === CFG.CYCLE) || 'normal';
+  sel.onchange = () => { CFG.CYCLE = DAY_LENGTHS[sel.value]; try { localStorage.setItem('firesOfPele.dayLength', sel.value); } catch (e) { /* */ } toast(`Day length: ${sel.options[sel.selectedIndex].text}.`, 'info'); };
+}
 $('btnRespawn').onclick = () => respawn();
 $('btnKeepPlaying').onclick = () => { setMode('play'); };
 $('btnCloseCraft').onclick = () => setMode('play');
@@ -292,7 +297,16 @@ function handleKeys() {
     const H = G.hearth;
     if (!H) toast('Build a Hearth first.', 'warn');
     else if (Math.hypot(H.x - player.pos.x, H.z - player.pos.z) > 7) toast('Rest beside your Hearth to pass the time.', 'info');
-    else if (G.cycle >= CFG.DAY_FRAC - 0.03) toast('Night is already upon you!', 'warn');
+    else if (G.cycle >= CFG.DAY_FRAC - 0.03) {
+      // night: once tonight's raid is beaten, sleep through to dawn
+      if (G.cycle < CFG.DAY_FRAC || (G.raid && G.raid.queue && G.raid.queue.length) || G.enemies.some((e) => e.alive && Math.hypot(e.pos.x - H.x, e.pos.z - H.z) < 70)) toast('Night is upon you! Beat back the raiders, then you can sleep [T].', 'warn');
+      else {
+        G.cycle = 0.997;
+        player.hunger = Math.max(0, player.hunger - 10); player.thirst = Math.max(0, player.thirst - 12);
+        toast('The drums fall silent. You sleep by the fire until dawn.', 'info', null, 4);
+        $('fade').classList.add('on'); setTimeout(() => $('fade').classList.remove('on'), 900);
+      }
+    }
     else if (G.enemies.some((e) => e.alive && Math.hypot(e.pos.x - player.pos.x, e.pos.z - player.pos.z) < 30)) toast("You can't rest with enemies nearby.", 'warn');
     else {
       G.cycle = CFG.DAY_FRAC - 0.025;
@@ -349,7 +363,10 @@ function frame() {
     updateQuests(dt);
     interact = player.alive ? findInteract() : null;
     let prompt = interact ? `[E] ${interact.label}` : '';
-    if (!prompt && G.hearth && G.cycle < CFG.DAY_FRAC - 0.03 && Math.hypot(G.hearth.x - player.pos.x, G.hearth.z - player.pos.z) < 7) prompt = '[T] Rest by the fire until dusk';
+    if (!prompt && G.hearth && Math.hypot(G.hearth.x - player.pos.x, G.hearth.z - player.pos.z) < 7) {
+      if (G.cycle < CFG.DAY_FRAC - 0.03) prompt = '[T] Rest by the fire until dusk';
+      else if (G.cycle >= CFG.DAY_FRAC && !(G.raid && G.raid.queue && G.raid.queue.length) && !G.enemies.some((e) => e.alive && Math.hypot(e.pos.x - G.hearth.x, e.pos.z - G.hearth.z) < 70)) prompt = '[T] Sleep by the fire until dawn';
+    }
     setPrompt(G.mode === 'build' ? '' : prompt);
   } else if (G.mode === 'title') {
     // slow orbit for the title screen

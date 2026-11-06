@@ -1,5 +1,8 @@
 // Shared game state. Every module imports G.
-export const CFG = { CYCLE: 300, DAY_FRAC: 0.65 };
+// Length of one full day + night in seconds. Players can change it in the pause menu (saved per browser).
+export const DAY_LENGTHS = { short: 300, normal: 900, long: 1800 };
+const savedLen = (() => { try { return localStorage.getItem('firesOfPele.dayLength'); } catch (e) { return null; } })();
+export const CFG = { CYCLE: DAY_LENGTHS[savedLen] || DAY_LENGTHS.normal, DAY_FRAC: 0.65 };
 
 export const RES_ICON = { wood: '🪵', stone: '🪨', fiber: '🌿', obsidian: '🔮', food: '🥥', water: '💧', bandage: '🩹' };
 export const RES_NAME = { wood: 'Wood', stone: 'Stone', fiber: 'Fiber', obsidian: 'Obsidian', food: 'Food', water: 'Water', bandage: 'Bandage' };

@@ -75,6 +75,59 @@ img { max-width: 100%; height: auto; }
 .top nav a { color: var(--ink); font: 600 1rem var(--display); text-decoration: none; }
 .top nav a:hover { color: var(--accent); }
 
+/* Sticky menu, with a Products dropdown */
+html { scroll-padding-top: 5.5rem; }
+header.top {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--line);
+  padding-block: 0.75rem;
+}
+.top nav { align-items: center; }
+.menu-drop { position: relative; }
+.menu-drop summary {
+  list-style: none; cursor: pointer;
+  color: var(--ink); font: 600 1rem var(--display);
+  padding: 0.45rem 0.1rem; min-height: 44px;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.menu-drop summary::-webkit-details-marker { display: none; }
+.menu-drop summary::after {
+  content: ""; width: 0.45rem; height: 0.45rem;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-0.1rem) rotate(45deg);
+}
+.menu-drop[open] summary::after { transform: translateY(0.15rem) rotate(225deg); }
+.menu-panel {
+  display: none; position: absolute; top: calc(100% + 0.35rem); left: 0; z-index: 50;
+  min-width: 18rem; padding: 0.4rem;
+  background: var(--paper-2); border: 1px solid var(--line); border-radius: 0.7rem;
+  box-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.45);
+}
+.menu-drop[open] .menu-panel,
+.menu-drop:hover .menu-panel,
+.menu-drop:focus-within .menu-panel { display: block; }
+.top .menu-panel a {
+  display: block; padding: 0.55rem 0.7rem; border-radius: 0.45rem;
+  color: var(--ink); text-decoration: none; font: 400 1rem var(--body);
+}
+.top .menu-panel a:hover,
+.top .menu-panel a[aria-current="page"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--ink); }
+.top .menu-panel a strong { display: block; font: 700 1rem var(--display); }
+.top .menu-panel a span { display: block; margin-top: 0.1rem; font: 400 0.9rem var(--body); color: var(--ink-2); }
+@media (max-width: 40rem) {
+  header.top { flex-wrap: nowrap; gap: 0.75rem; }
+  .top nav { flex-wrap: nowrap; overflow-x: auto; min-width: 0; gap: 0.75rem; }
+  .menu-drop { flex: none; }
+  .menu-panel {
+    position: fixed; left: 0.75rem; right: 0.75rem; top: 5.75rem;
+    min-width: 0; width: auto;
+  }
+}
+
+
 /* Opening */
 .hero { padding-block: 3rem 2.5rem; }
 @media (min-width: 48rem) { .hero { padding-block: 5rem 3.5rem; } }

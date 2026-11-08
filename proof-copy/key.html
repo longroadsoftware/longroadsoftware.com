@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page can be opened as ?transaction_id=txn_..., and that number can be exchanged for the
+     licence key. Send only the bare origin as the referrer, so the number does not travel on in
+     document.referrer. "origin" rather than "no-referrer": no-referrer also makes the Origin header
+     null on cross-origin requests, and the licence service matches Origin, so the key fetch would be
+     refused. No analytics on this page, for the same reason. -->
+<meta name="referrer" content="origin">
+<title>Lost your key? — Proof Copy</title>
+<meta name="description" content="Show your Proof Copy licence key again from the transaction number on your Paddle receipt.">
+<link rel="canonical" href="https://longroadsoftware.com/proof-copy/key.html">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@600;700;800&family=Overpass+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top wrap">
+  <a class="sign" href="/" aria-label="Long Road Software, home"><span>Long Road</span><span>Software</span></a>
+  <nav aria-label="Sections">
+    <details class="menu-drop">
+      <summary>Products</summary>
+      <div class="menu-panel">
+        <a href="https://mediaflowswift.com/?utm_source=longroadsoftware&utm_medium=referral&utm_campaign=proof-copy&utm_content=nav"><strong>MediaFlowSwift</strong><span>Footage manager for Mac</span></a>
+        <a href="https://checkandroll.app/?utm_source=longroadsoftware&utm_medium=referral&utm_campaign=proof-copy&utm_content=nav"><strong>Check &amp; Roll</strong><span>RV checklists for iPhone and iPad</span></a>
+        <a href="https://longroadsoftware.com/proof-copy/"><strong>Proof Copy</strong><span>Proved card copies for Mac</span></a>
+      </div>
+    </details>
+    <a href="/#about">About</a>
+    <a href="/#contact">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <p class="marker">Proof Copy</p>
+    <h1>Lost your key?</h1>
+    <p class="lede">Paddle, who handled the payment, emailed you a receipt. It has a transaction number that starts with <code>txn_</code>. Paste it here and your key is shown again.</p>
+
+    <form class="notify" id="lookup">
+      <label for="txn">Transaction number from your receipt</label>
+      <div class="notify-row">
+        <input id="txn" name="transaction_id" type="text" autocomplete="off" spellcheck="false" placeholder="txn_01k9ppwf885xk7azx0xgnp6kp1" required pattern="^\s*txn_[a-z0-9]{26}\s*$">
+        <button type="submit" class="button" id="find">Show my key</button>
+      </div>
+    </form>
+
+    <div class="keybox" id="keybox" hidden>
+      <p class="keybox-tag">Your licence key</p>
+      <p class="key"><code id="key"></code></p>
+      <div class="actions">
+        <button type="button" class="button" id="copy">Copy key</button>
+        <span class="fine" id="copied" hidden>Copied</span>
+      </div>
+    </div>
+
+    <p class="buy-notice" id="status" role="status" hidden></p>
+  </div>
+
+  <div class="wrap"><div class="centerline" aria-hidden="true"></div></div>
+
+  <section class="wrap" aria-labelledby="enter-title">
+    <h2 id="enter-title">Then enter it in the app</h2>
+    <ol>
+      <li>Open Proof Copy and choose <strong>Licence</strong> in the sidebar.</li>
+      <li>Paste the key and click <strong>Save</strong>.</li>
+    </ol>
+    <p class="fine">No receipt at all? Write to <a href="mailto:support@mediaflowswift.com">support@mediaflowswift.com</a> from the email address you bought with.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Long Road Software LLC &middot; Tennessee, USA</span>
+    <span><a href="/">Home</a> &middot; <a href="/proof-copy/">Proof Copy</a> &middot; <a href="/proof-copy/proof-copy-manual.pdf">Proof Copy manual</a> &middot; <a href="/proof-copy/support/">Support</a> &middot; <a href="/proof-copy/privacy/">Privacy</a></span>
+  </div>
+</footer>
+
+<script src="/proof-copy/paddle-config.js"></script>
+<script>
+(function () {
+  var cfg = window.ProofCopyPaddle;
+  var form = document.getElementById("lookup");
+  var input = document.getElementById("txn");
+  var status = document.getElementById("status");
+  var keybox = document.getElementById("keybox");
+  var keyEl = document.getElementById("key");
+  var find = document.getElementById("find");
+
+  function say(text) { status.textContent = text; status.hidden = !text; }
+
+  function support(txn) { return " Write to support@mediaflowswift.com with transaction " + txn + "."; }
+
+  document.getElementById("copy").addEventListener("click", function () {
+    navigator.clipboard.writeText(keyEl.textContent).then(function () {
+      var c = document.getElementById("copied");
+      c.hidden = false;
+      setTimeout(function () { c.hidden = true; }, 2000);
+    });
+  });
+
+  var preset = new URLSearchParams(window.location.search).get("transaction_id");
+  if (preset) input.value = preset;
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var txn = input.value.trim();
+    keybox.hidden = true;
+    if (!/^txn_[a-z0-9]{26}$/.test(txn)) return say("That is not a Paddle transaction number. It starts with txn_ and is on your receipt.");
+    var base = cfg && cfg.environment().licenceService;
+    if (!base) return say("Key lookup is not available right now." + support(txn));
+    find.disabled = true;
+    say("Looking it up…");
+    fetch(base + "/key?transaction_id=" + encodeURIComponent(txn), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
+      .then(function (res) {
+        find.disabled = false;
+        if (res.body && res.body.ok && res.body.key && res.body.product === "proofcopy") {
+          keyEl.textContent = res.body.key;
+          keybox.hidden = false;
+          return say("");
+        }
+        if (res.body && res.body.ok && res.body.key) return say("That number is for a MediaFlowSwift purchase, not Proof Copy. Its key is on mediaflowswift.com/key.html.");
+        say(((res.body && res.body.message) || "The key could not be found.") + support(txn));
+      })
+      .catch(function () {
+        find.disabled = false;
+        say("The licence service did not answer. Try again in a minute." + support(txn));
+      });
+  });
+})();
+</script>
+</body>
+</html>

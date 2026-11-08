@@ -232,3 +232,12 @@ footer a { color: var(--ink-2); }
 .notify input:focus-visible { outline: 3px solid var(--stripe); outline-offset: 2px; }
 .notify .button { border: 0; cursor: pointer; }
 .fine { color: var(--ink-2); font-size: 0.95rem; }
+
+/* Proof Copy buying: the buy button, the notice under it, and the key on the thank-you and lost-key pages */
+button.button { border: 0; cursor: pointer; }
+.button:disabled { opacity: 0.55; cursor: not-allowed; filter: none; }
+.buy-notice { margin-top: 1rem; padding: 0.7rem 0.9rem; border-left: 3px solid var(--stripe); background: var(--paper-2); }
+.keybox { margin-top: 1.5rem; max-width: var(--measure); padding: 1rem 1.1rem; background: var(--paper-2); border: 1px solid var(--line); border-radius: 0.6rem; }
+.keybox-tag { margin: 0 0 0.4rem; font: 700 0.85rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.key { margin: 0; font: 500 0.95rem/1.5 var(--mono); overflow-wrap: anywhere; user-select: all; }
+.keybox .actions { margin-top: 0.9rem; }

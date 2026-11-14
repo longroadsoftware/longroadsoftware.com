@@ -76,7 +76,7 @@ let og = canvas(1200, 630) { cg in
     road(cg, in: CGRect(x: 120, y: 150, width: 200, height: 220), edge: 12, dash: 11)
     text("LONG ROAD", font("DINAlternate-Bold", 118), .white, at: CGPoint(x: 372, y: 142), kern: 2)
     text("SOFTWARE", font("DINAlternate-Bold", 64), .white, at: CGPoint(x: 376, y: 276), kern: 14)
-    text("Makers of MediaFlowSwift, footage management for Mac video creators",
+    text("Makers of MediaFlowSwift for the Mac, with more on the way",
          font("AvenirNext-Medium", 30), NSColor(white: 1, alpha: 0.86), at: CGPoint(x: 72, y: 470))
     text("longroadsoftware.com", font("DINAlternate-Bold", 30), yellow, at: CGPoint(x: 72, y: 530), kern: 1)
 }

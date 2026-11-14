@@ -1,6 +1,6 @@
 # Long Road Software
 
-> Long Road Software LLC is a Tennessee limited liability company, formed in 2026. It makes and supports MediaFlowSwift, a footage manager for video creators on the Mac.
+> Long Road Software LLC is a Tennessee limited liability company, formed in 2026. It makes and supports MediaFlowSwift, a footage manager for the Mac, which is its only product on sale today. In preparation: Proof Copy (Mac), Check & Roll (iPhone and iPad), and MediaFlowSwift for Windows.
 
 ## Products
 - MediaFlowSwift: https://mediaflowswift.com/ — import from cards and phones, review and sort, organize into folders ready for editing, free up space only once each copy is proved, archive to numbered drives, and publish to YouTube. macOS 13 or later on Apple silicon. 14-day free trial, no card; Studio USD 4.99/month, Studio Pro USD 9.99/month. Product details for assistants: https://mediaflowswift.com/llms.txt

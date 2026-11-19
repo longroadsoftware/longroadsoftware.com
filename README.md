@@ -4,6 +4,7 @@ The company site of Long Road Software LLC, served by GitHub Pages from `main` (
 
 Plain static files, no build step (`.nojekyll`):
 
+- `updates/`, the Updates page: one line per MediaFlowSwift release, newest first; linked from the menu on every page
 - `index.html` and `404.html` (GitHub Pages serves `404.html` for missing pages; it is `noindex`)
 - `site.css`, `favicon.svg`
 - `theme.js`, the light/dark switch in the menu; the site follows the computer's setting until a visitor presses it, and the choice stays in that browser only

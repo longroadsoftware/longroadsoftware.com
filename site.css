@@ -14,7 +14,10 @@
   --display: "Overpass", "DIN Alternate", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
   --body: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
   --mono: "Overpass Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -20px rgba(0, 0, 0, 0.25);
+  color-scheme: light dark;
 }
+:root[data-theme="light"] { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #0f1513;
@@ -26,9 +29,11 @@
     --sign-ink: #ffffff;
     --accent: #5ec79a;
     --stripe: #f2b705;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -20px rgba(0, 0, 0, 0.7);
   }
 }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --paper: #0f1513;
   --paper-2: #17201c;
   --ink: #e8efeb;
@@ -38,6 +43,7 @@
   --sign-ink: #ffffff;
   --accent: #5ec79a;
   --stripe: #f2b705;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -20px rgba(0, 0, 0, 0.7);
 }
 
 * { box-sizing: border-box; }
@@ -128,6 +134,23 @@ header.top {
 }
 
 
+/* Light or dark switch (added by theme.js) */
+.theme-switch {
+  display: inline-grid; place-items: center; flex: none;
+  width: 44px; height: 44px; padding: 0; margin-left: -0.5rem;
+  background: none; border: 0; border-radius: 50%; cursor: pointer; color: var(--ink);
+}
+.theme-switch:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.theme-switch:focus-visible { outline: 3px solid var(--stripe); outline-offset: 2px; }
+.theme-switch svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.theme-switch .sun { display: none; }
+:root[data-theme="dark"] .theme-switch .sun { display: inline; }
+:root[data-theme="dark"] .theme-switch .moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-switch .sun { display: inline; }
+  :root:not([data-theme="light"]) .theme-switch .moon { display: none; }
+}
+
 /* Opening */
 .hero { padding-block: 3rem 2.5rem; }
 @media (min-width: 48rem) { .hero { padding-block: 5rem 3.5rem; } }
@@ -162,13 +185,16 @@ p { max-width: var(--measure); margin: 0 0 1rem; }
 .product {
   display: grid; gap: 1.25rem 2rem; align-items: start;
   grid-template-columns: 1fr;
+  padding: 1.5rem; background: var(--paper-2);
+  border: 1px solid var(--line); border-radius: 0.9rem; box-shadow: var(--shadow);
 }
 @media (min-width: 40rem) { .product { grid-template-columns: 7rem 1fr; } }
+@media (min-width: 48rem) { .product { padding: 2rem 2.25rem; } }
 .product img { width: 7rem; height: 7rem; }
 .product h3 { margin: 0 0 0.5rem; font-size: 2rem; font-weight: 800; line-height: 1.1; }
 .product h3 a { color: var(--ink); text-decoration: none; }
 .product h3 a:hover { color: var(--accent); }
-.product + .product { margin-top: 2.5rem; }
+.product + .product { margin-top: 1.5rem; }
 .product.plain { grid-template-columns: 1fr; }
 .shot { margin: 1.5rem 0 0; max-width: 40rem; }
 .shot img { border-radius: 0.6rem; border: 1px solid var(--line); }
@@ -184,6 +210,7 @@ p { max-width: var(--measure); margin: 0 0 1rem; }
   border-radius: 0.5rem; font: 700 1rem var(--display); text-decoration: none;
 }
 .button:hover { filter: brightness(1.1); }
+.button:active { transform: translateY(1px); }
 
 /* How the work is done */
 .mission { font-size: 1.2rem; line-height: 1.5; max-width: 40rem; margin: 0 0 1.25rem; }
@@ -205,7 +232,7 @@ footer a { color: var(--ink-2); }
 .lost ul { padding-left: 1.2rem; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .button, .top nav a { transition: color 0.15s, filter 0.15s; }
+  .button, .top nav a, .theme-switch { transition: color 0.15s, filter 0.15s, background-color 0.15s; }
 }
 
 /* Analytics notice — asked once, before anything is loaded from Google.

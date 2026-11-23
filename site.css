@@ -124,11 +124,14 @@ header.top {
 .top .menu-panel a strong { display: block; font: 700 1rem var(--display); }
 .top .menu-panel a span { display: block; margin-top: 0.1rem; font: 400 0.9rem var(--body); color: var(--ink-2); }
 @media (max-width: 40rem) {
-  header.top { flex-wrap: nowrap; gap: 0.75rem; }
-  .top nav { flex-wrap: nowrap; overflow-x: auto; min-width: 0; gap: 0.75rem; }
+  /* Two rows on a phone: the sign, then the whole menu, so nothing is hidden off the side. */
+  html { scroll-padding-top: 8rem; }
+  header.top { flex-wrap: wrap; gap: 0.1rem 0.75rem; padding-block: 0.5rem 0.15rem; }
+  .sign { font-size: 0.9rem; padding: 0.35rem 0.7rem 0.28rem; }
+  .top nav { flex: 1 0 100%; flex-wrap: nowrap; justify-content: space-between; min-width: 0; overflow-x: auto; gap: 0.5rem; }
   .menu-drop { flex: none; }
   .menu-panel {
-    position: fixed; left: 0.75rem; right: 0.75rem; top: 5.75rem;
+    position: fixed; left: 0.75rem; right: 0.75rem; top: 6.6rem;
     min-width: 0; width: auto;
   }
 }
@@ -203,6 +206,8 @@ p { max-width: var(--measure); margin: 0 0 1rem; }
   font: 500 0.85rem/1.5 var(--mono); color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+main ul, main ol { max-width: var(--measure); }
+.hero-facts { margin-top: 1rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; margin-top: 1.5rem; }
 .button {
   display: inline-block; padding: 0.7rem 1.2rem;

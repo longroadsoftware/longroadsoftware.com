@@ -10,5 +10,6 @@ Plain static files, no build step (`.nojekyll`):
 - `robots.txt`, `sitemap.xml` and `llms.txt` for search engines and assistants; update `lastmod` in `sitemap.xml` when a page changes
 - `images/og-image.png` (1200×630, the preview shown when the site is shared) and `images/logo.png`, drawn by `tools/make_images.swift`
 - `images/mediaflowswift-icon.png`, taken from MediaFlowSwift's app icon
+- `claude-usage-meter/`, the page for the free Claude Usage Meter (menu item **Free Tools**, on every page). Its download button and JSON-LD name the release version: update both links, `softwareVersion` and the version line when a new release ships. `images/claude-usage-meter-menu.{png,webp}` is a real screenshot; `images/claude-usage-meter-icon.png` is the app's own `--once` tile
 
 The other registered names (`.net`, `.info`, `.store`) forward to `https://longroadsoftware.com/` at the registrar.

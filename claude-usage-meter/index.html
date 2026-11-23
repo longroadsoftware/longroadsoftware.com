@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Usage Meter — free Mac menu bar app for your Claude plan limit</title>
+<meta name="description" content="A free Mac menu bar app that shows how much of your Claude plan's usage limit is left, and when it resets. No account with us, no tracking, open source.">
+<link rel="canonical" href="https://longroadsoftware.com/claude-usage-meter/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Long Road Software">
+<meta property="og:title" content="Claude Usage Meter — free Mac menu bar app">
+<meta property="og:description" content="See how much of your Claude plan's usage limit is left, right in the Mac menu bar. Free and open source.">
+<meta property="og:url" content="https://longroadsoftware.com/claude-usage-meter/">
+<meta property="og:image" content="https://longroadsoftware.com/images/claude-usage-meter-menu.png">
+<meta property="og:image:width" content="1136">
+<meta property="og:image:height" content="566">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@600;700;800&family=Overpass+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="/site.css">
+<script src="/theme.js"></script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Long Road Software","item":"https://longroadsoftware.com/"},
+{"@type":"ListItem","position":2,"name":"Claude Usage Meter","item":"https://longroadsoftware.com/claude-usage-meter/"}
+]},
+{"@type":"SoftwareApplication","name":"Claude Usage Meter","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS 14 or later","softwareVersion":"1.0.1","url":"https://longroadsoftware.com/claude-usage-meter/","downloadUrl":"https://github.com/longroadsoftware/claude-usage-meter/releases/download/v1.0.1/ClaudeUsageMeter-1.0.1.zip","license":"https://opensource.org/license/mit","isAccessibleForFree":true,"description":"A free Mac menu bar app that shows how much of your Claude plan's usage limit is left, and when each limit resets. Unofficial; not affiliated with Anthropic.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@id":"https://longroadsoftware.com/#org"}}
+]}
+</script>
+<!-- Analytics, off until the visitor says yes. See the privacy page. -->
+<script src="/analytics.js" data-ga="G-NT6Q01MZ23" data-privacy="https://mediaflowswift.com/privacy.html?utm_source=longroadsoftware&utm_medium=referral&utm_campaign=claude-usage-meter&utm_content=consent" defer></script>
+</head>
+<body>
+<header class="top wrap">
+  <a class="sign" href="/" aria-label="Long Road Software, home"><span>Long Road</span><span>Software</span></a>
+  <nav aria-label="Sections">
+    <details class="menu-drop">
+      <summary>Products</summary>
+      <div class="menu-panel">
+        <a href="https://mediaflowswift.com/?utm_source=longroadsoftware&utm_medium=referral&utm_campaign=claude-usage-meter&utm_content=nav"><strong>MediaFlowSwift</strong><span>Footage manager for Mac</span></a>
+        <a href="/check-and-roll/"><strong>Check &amp; Roll</strong><span>RV checklists for iPhone and iPad</span></a>
+        <a href="https://longroadsoftware.com/proof-copy/"><strong>Proof Copy</strong><span>Coming soon</span></a>
+      </div>
+    </details>
+    <details class="menu-drop">
+      <summary>Free Tools</summary>
+      <div class="menu-panel">
+        <a href="/claude-usage-meter/" aria-current="page"><strong>Claude Usage Meter</strong><span>Free Mac menu bar app</span></a>
+      </div>
+    </details>
+    <a href="/#about">About</a>
+    <a href="/#contact">Contact</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <p class="marker">Free &middot; Mac menu bar app &middot; Open source</p>
+    <h1>Claude Usage Meter</h1>
+    <p class="lede">See how much of your Claude plan's usage limit is left, always in view at the top of your Mac's screen. It is free: no price, no trial, no ads, and no account with us.</p>
+    <div class="actions">
+      <a class="button" href="https://github.com/longroadsoftware/claude-usage-meter/releases/download/v1.0.1/ClaudeUsageMeter-1.0.1.zip">Download free for Mac</a>
+      <a href="#install">How to install</a>
+    </div>
+    <p class="facts hero-facts">Version 1.0.1 &middot; macOS 14 or later &middot; signed and notarized by Apple</p>
+    <figure class="shot">
+      <picture>
+        <source srcset="/images/claude-usage-meter-menu.webp" type="image/webp">
+        <img src="/images/claude-usage-meter-menu.png" width="1136" height="566" alt="The Mac menu bar showing &ldquo;Claude 47% remaining&rdquo; with its menu open: the weekly limit, a model-only limit, when each resets, and when it was last checked.">
+      </picture>
+      <figcaption>The meter in the menu bar, with its menu open. This is the real app on our own Mac.</figcaption>
+    </figure>
+  </div>
+
+  <div class="wrap"><div class="centerline" aria-hidden="true"></div></div>
+
+  <section class="wrap" aria-labelledby="does-title">
+    <h2 id="does-title">What it does</h2>
+    <p>If you use Claude a lot, you find out you have hit your limit when Claude stops answering. The meter shows you beforehand.</p>
+    <ul>
+      <li>Shows the same numbers as claude.ai &rsaquo; Settings &rsaquo; Usage, without opening a browser.</li>
+      <li>Shows percent remaining or percent used. You choose.</li>
+      <li>The ring turns orange, then red, as you run low.</li>
+      <li>Click it to see every limit on your plan (5-hour session, weekly, model-only caps) and when each one resets.</li>
+      <li>Can notify you when you drop below a level you set.</li>
+      <li>Optional Dock tile, and it can open at login.</li>
+    </ul>
+  </section>
+
+  <section class="wrap" aria-labelledby="free-title">
+    <h2 id="free-title">Why it is free</h2>
+    <p>We built it for ourselves. We use Claude every day, and we kept running into the weekly limit without warning. Once it worked, there was no reason to keep it to ourselves.</p>
+    <p>The source is public under the MIT licence, so anyone can read exactly what it does.</p>
+    <p>If it is useful to you, have a look at <a href="/">what else we make</a>. That is all we ask.</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="install-title" id="install">
+    <h2 id="install-title">Install</h2>
+    <ol>
+      <li><a href="https://github.com/longroadsoftware/claude-usage-meter/releases/download/v1.0.1/ClaudeUsageMeter-1.0.1.zip">Download the zip</a> and open it.</li>
+      <li>Drag <strong>Claude Usage Meter</strong> into your Applications folder, then open it.</li>
+      <li>Your browser opens claude.ai. Click <strong>Authorize</strong>. The meter appears at the top right of your screen.</li>
+    </ol>
+    <p>Sign in with the Claude account that has your paid plan (Pro or Max). If Claude Code is already signed in on the same Mac, the meter uses that and there is nothing to do.</p>
+    <p class="facts">Built for macOS 14 or later, Apple silicon and Intel. We run it every day on Apple silicon.</p>
+    <p>Trouble signing in? The <a href="https://github.com/longroadsoftware/claude-usage-meter#troubleshooting">troubleshooting notes</a> cover the usual causes.</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="privacy-title">
+    <h2 id="privacy-title">What it sends, and where</h2>
+    <p>Your Claude sign-in goes only to Anthropic, the company that makes Claude. Nothing goes to Long Road Software or anyone else.</p>
+    <ul>
+      <li>No account with us, no analytics, no crash reports, no update check.</li>
+      <li>Your sign-in is kept in your Mac's Keychain and is used only to read your usage.</li>
+      <li>To remove it, click the meter and choose <strong>Sign Out of Claude</strong>.</li>
+    </ul>
+    <p class="fine">Unofficial. Claude Usage Meter is not affiliated with or endorsed by Anthropic. Claude is a trademark of Anthropic. The app reads usage the same way Anthropic's own Claude Code does, and Anthropic could change that at any time.</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="source-title">
+    <h2 id="source-title">Source and questions</h2>
+    <p>The code is at <a href="https://github.com/longroadsoftware/claude-usage-meter">github.com/longroadsoftware/claude-usage-meter</a>. Found a problem or want a setting added? <a href="https://github.com/longroadsoftware/claude-usage-meter/issues">Open an issue there</a>.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Long Road Software LLC &middot; Tennessee, USA</span>
+    <span><a href="/">Home</a> &middot; <a href="https://github.com/longroadsoftware/claude-usage-meter">Source</a> &middot; <a href="https://mediaflowswift.com/privacy.html?utm_source=longroadsoftware&utm_medium=referral&utm_campaign=claude-usage-meter&utm_content=footer">Website privacy</a></span>
+    <span id="analytics-choice"></span>
+  </div>
+</footer>
+</body>
+</html>

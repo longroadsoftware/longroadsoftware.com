@@ -7,6 +7,9 @@
 - Proof Copy: https://longroadsoftware.com/proof-copy/ — coming soon, not on sale, no price published. Copies a camera card or folder on the Mac, reads the copy back, and leaves a receipt. One drive is enough. Nothing is deleted. Manual: https://longroadsoftware.com/proof-copy/proof-copy-manual.pdf
 - Check & Roll: https://checkandroll.app/ (summary page: https://longroadsoftware.com/check-and-roll/) — not on the App Store yet, no price published. An RV checklist app for iPhone and iPad: built-in lists for travel trailers, fifth wheels, motorhomes, toads and tow vehicles, steps presented in order with check-or-skip at each one, critical-step confirmation (e.g. the black tank valve), a hands-free walk-through, and Siri. No account, no Long Road Software server. Privacy: https://checkandroll.app/privacy/ — Support: https://checkandroll.app/support/
 
+## Free tools
+- Claude Usage Meter: https://longroadsoftware.com/claude-usage-meter/ — free, open source (MIT) Mac menu bar app that shows how much of a Claude plan's usage limit is left and when each limit resets. macOS 14 or later. No price, no account with Long Road Software, no tracking; the Claude sign-in goes only to Anthropic. Unofficial, not affiliated with Anthropic. Source: https://github.com/longroadsoftware/claude-usage-meter
+
 ## Sales
 Purchases of MediaFlowSwift are handled by Paddle, the merchant of record.
 
